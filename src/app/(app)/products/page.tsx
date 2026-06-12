@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function ProductsPage({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const user = await requireModule("products");
   const { p } = await searchParams;
-  const { key, period } = resolvePeriod(p, "30d");
+  const { key, period } = resolvePeriod(p, "today");
   const cab = cabinetScope(user, (await cookies()).get("wbboard_cab")?.value);
   const rows = await skuTable(period, cab);
   const lvl = moneyLevel(user);

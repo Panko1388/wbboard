@@ -1,6 +1,6 @@
 "use client";
-// Переключатель кабинета в шапке: «Все» или конкретный кабинет. Выбор — в cookie,
-// влияет на ВСЕ страницы статистики. Перезагружает страницу при смене.
+// Переключатель кабинета — заметный сегмент в шапке: «Все» + кнопка на каждый кабинет.
+// Влияет на ВСЕ страницы статистики. Выбор в cookie, перезагружает страницу.
 export function CabinetSeg({ cabinets, current }: {
   cabinets: { sid: string; name: string }[];
   current: string;
@@ -10,15 +10,13 @@ export function CabinetSeg({ cabinets, current }: {
     document.cookie = `wbboard_cab=${sid};path=/;max-age=31536000;samesite=lax`;
     location.reload();
   };
+  const short = (n: string) => (n.length > 14 ? n.slice(0, 13) + "…" : n);
   return (
-    <select
-      className="cab-select"
-      value={current}
-      onChange={e => set(e.target.value)}
-      title="Кабинет для просмотра статистики"
-    >
-      <option value="all">Все кабинеты</option>
-      {cabinets.map(c => <option key={c.sid} value={c.sid}>{c.name}</option>)}
-    </select>
+    <div className="seg cab-seg" title="Кабинет для просмотра статистики">
+      <button className={current === "all" ? "on" : ""} onClick={() => set("all")}>Все</button>
+      {cabinets.map(c => (
+        <button key={c.sid} className={current === c.sid ? "on" : ""} onClick={() => set(c.sid)}>{short(c.name)}</button>
+      ))}
+    </div>
   );
 }

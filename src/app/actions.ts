@@ -294,6 +294,7 @@ export async function runCollectorNow(fd: FormData) {
       tariffs: (await import("@/collectors/tariffs")).collectTariffs,
       adv: (await import("@/collectors/adv")).collectAdv,
       funnel: (await import("@/collectors/funnel")).collectFunnel,
+      content: (await import("@/collectors/content")).collectContent,
     };
     const fn = collectors[name];
     if (fn) {

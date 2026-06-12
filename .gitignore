@@ -1,7 +1,7 @@
 node_modules/
 .next/
 .env
+*.local
+prisma/migrations/dev*
 uploads/
 pg-dev.mjs
-pg-dev.*
-*.log

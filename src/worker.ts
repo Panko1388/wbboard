@@ -10,6 +10,7 @@ import { collectFinreport } from "@/collectors/finreport";
 import { collectTariffs } from "@/collectors/tariffs";
 import { collectAdv } from "@/collectors/adv";
 import { collectFunnel } from "@/collectors/funnel";
+import { collectContent } from "@/collectors/content";
 import { collectFx } from "@/collectors/fx";
 import { collectMpstats } from "@/collectors/mpstats";
 import { processPhotoQueue } from "@/lib/photocheck/pipeline";
@@ -26,6 +27,7 @@ const perCabinet: Record<string, PerCabinet> = {
   tariffs: collectTariffs,
   adv: collectAdv,
   funnel: collectFunnel,
+  content: collectContent, // фото/названия карточек из Content API
 };
 
 const SCHEDULES: [name: string, cron: string][] = [
@@ -36,6 +38,7 @@ const SCHEDULES: [name: string, cron: string][] = [
   ["tariffs", "0 6 * * *"],
   ["adv", "5 * * * *"],
   ["funnel", "20 3 * * *"],
+  ["content", "10 4,16 * * *"], // фото и названия карточек (Content API, отд. лимит) 2 р/день
   ["fx", "0 10 * * *"],
   ["news", "30 8 * * *"], // мониторинг breaking changes WB (риск-аудит R1.5)
   ["mpstats", "40 5 * * *"], // ниши/конкуренты/ключи

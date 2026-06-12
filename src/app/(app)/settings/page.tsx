@@ -5,7 +5,7 @@ import { saveCabinet, saveIntegration, runCollectorNow, savePlans } from "@/app/
 
 export const dynamic = "force-dynamic";
 
-const COLLECTORS = ["orders", "sales", "stocks", "finreport", "tariffs", "adv", "funnel", "fx", "mpstats"];
+const COLLECTORS = ["orders", "sales", "stocks", "finreport", "tariffs", "adv", "funnel", "content", "fx", "mpstats"];
 
 export default async function SettingsPage() {
   const user = await requireUser();

@@ -7,6 +7,7 @@ import { collectOrders } from "../src/collectors/orders";
 import { collectSales } from "../src/collectors/sales";
 import { collectAdv } from "../src/collectors/adv";
 import { collectFinreport } from "../src/collectors/finreport";
+import { collectContent } from "../src/collectors/content";
 import { collectFx } from "../src/collectors/fx";
 
 async function main() {
@@ -15,6 +16,7 @@ async function main() {
   await runCollector("fx", null, collectFx).then(r => console.log("fx:", r));
 
   const steps: [string, (sid: string, t: string) => Promise<number>][] = [
+    ["content", collectContent], // фото/названия карточек (Content API, отд. лимит — не блокируется паузой статистики)
     ["tariffs", collectTariffs],
     ["stocks", collectStocks],
     ["orders", collectOrders],

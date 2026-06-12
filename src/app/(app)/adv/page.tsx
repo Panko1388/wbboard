@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function AdvPage({ searchParams }: { searchParams: Promise<{ p?: string }> }) {
   const user = await requireModule("adv");
   const { p } = await searchParams;
-  const { key, period } = resolvePeriod(p, "7d");
+  const { key, period } = resolvePeriod(p, "today");
   const cab = cabinetScope(user, (await cookies()).get("wbboard_cab")?.value);
   const cabWhere = cab.length ? { cabinetSid: { in: cab } } : {};
 

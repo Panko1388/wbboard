@@ -95,10 +95,11 @@ tr:last-child td{border-bottom:none}
 tbody tr:hover{background:#faf8f1}
 td .name{font-weight:650}
 td .code{font-size:11.5px;color:var(--mut)}
-.ph{width:38px;height:48px;border-radius:7px;background:linear-gradient(160deg,#e8eeff,#f3ead7);display:inline-block;vertical-align:middle;margin-right:10px;flex:none}
-.ph.md{width:48px;height:60px}.ph.lg{width:96px;height:122px;border-radius:10px;margin-right:0}
-.pimg{width:38px;height:48px;border-radius:7px;object-fit:cover;vertical-align:middle;margin-right:10px;background:linear-gradient(160deg,#e8eeff,#f3ead7)}
-.pimg.md{width:48px;height:60px}.pimg.lg{width:96px;height:122px;border-radius:10px;margin-right:0}
+/* фото WB — соотношение 3:4, object-fit:cover чтобы не искажались */
+.ph{width:42px;height:56px;border-radius:7px;background:linear-gradient(160deg,#e8eeff,#f3ead7);display:inline-block;vertical-align:middle;margin-right:10px;flex:none}
+.ph.md{width:54px;height:72px}.ph.lg{width:96px;height:128px;border-radius:10px;margin-right:0}
+.pimg{width:42px;height:56px;border-radius:7px;object-fit:cover;vertical-align:middle;margin-right:10px;background:linear-gradient(160deg,#e8eeff,#f3ead7);flex:none}
+.pimg.md{width:54px;height:72px}.pimg.lg{width:96px;height:128px;border-radius:10px;margin-right:0}
 /* кликабельное фото → карточка товара на WB */
 .pimg-link{display:inline-flex;vertical-align:middle;line-height:0;border-radius:7px;transition:transform .15s ease,box-shadow .15s ease}
 .pimg-link:hover{transform:scale(1.04);box-shadow:0 4px 14px rgba(16,27,62,.18)}
@@ -312,10 +313,11 @@ td .code{font-size:11.5px;color:var(--mut)}
 }
 .theme-seg{margin-left:6px}
 .theme-seg button{cursor:pointer}
-/* селектор кабинета в шапке */
-.cab-select{min-height:32px;padding:5px 10px;border-radius:99px;font-weight:600;font-size:13px;cursor:pointer;
-  border:1px solid var(--line);background:var(--panel);color:var(--txt)}
-[data-theme="glass"] .cab-select{background:rgba(255,255,255,.55);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.8)}
+/* переключатель кабинета в шапке (сегмент-кнопки) */
+.cab-seg{margin-left:4px}
+.cab-seg button{cursor:pointer}
+.cab-seg button.on{background:var(--acc);color:#fff}
+[data-theme="glass"] .cab-seg button.on{background:linear-gradient(135deg,rgba(38,103,255,.95),rgba(122,92,255,.95));color:#fff}
 
 /* ── Пульс: раскрывающиеся плитки «Заказы»/«Выкупы» ── */
 .expandable-tile{align-self:start}
