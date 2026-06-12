@@ -1,8 +1,9 @@
 // Настройки: кабинеты и токены, интеграции (MPstats), роли, коллекторы
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { saveCabinet, saveIntegration, runCollectorNow, savePlans } from "@/app/actions";
+import { saveCabinet, saveIntegration, savePlans } from "@/app/actions";
 import { CabinetRow } from "@/components/CabinetRow";
+import { CollectorRunner } from "@/components/CollectorRunner";
 
 export const dynamic = "force-dynamic";
 
@@ -93,14 +94,7 @@ export default async function SettingsPage() {
 
           <div className="card">
             <h2 style={{ marginTop: 0 }}>Коллекторы — запустить сейчас</h2>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {COLLECTORS.map(c => (
-                <form action={runCollectorNow} key={c}>
-                  <input type="hidden" name="name" value={c} />
-                  <button className="btn" type="submit">{c}</button>
-                </form>
-              ))}
-            </div>
+            <CollectorRunner collectors={COLLECTORS} />
             <h2>Последние запуски</h2>
             <div className="ul">
               {runs.map(r => (
