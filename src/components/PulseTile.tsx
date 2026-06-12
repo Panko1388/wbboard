@@ -6,10 +6,11 @@ import { Photo } from "@/components/Photo";
 export type TileItem = { nmId: number; title: string; vendorCode: string; count: number; sum: string };
 
 export function PulseTile({
-  label, value, rows, chip, net, items, totalSkus,
+  label, value, valueNote, rows, chip, net, items, totalSkus,
 }: {
   label: string;
   value: string;
+  valueNote?: string;
   rows?: { k: string; v: string }[];
   chip?: { text: string; tone: "ok" | "warn" | "bad" | "mut" };
   net?: { k: string; v: string };
@@ -36,6 +37,7 @@ export function PulseTile({
         </span>
         <span className="big num">
           {value}
+          {valueNote && <span className="bignote mut"> · {valueNote}</span>}
           {can && <span className={`caret${open ? " open" : ""}`} aria-hidden> ▸</span>}
         </span>
         {rows?.map(r => (

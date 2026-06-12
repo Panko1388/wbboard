@@ -68,19 +68,21 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
     const nameOf = (sid: string) => cabsList.find(c => c.sid === sid)?.name ?? sid;
     const cw = cab.length ? { cabinetSid: { in: cab } } : {};
     const [og, sg] = await Promise.all([
-      db.order.groupBy({ by: ["cabinetSid"], where: { ...cw, date: { gte: period.from, lt: period.to }, isCancel: false }, _sum: { priceWithDisc: true } }),
-      db.sale.groupBy({ by: ["cabinetSid", "type"], where: { ...cw, date: { gte: period.from, lt: period.to } }, _sum: { forPay: true } }),
+      db.order.groupBy({ by: ["cabinetSid"], where: { ...cw, date: { gte: period.from, lt: period.to }, isCancel: false }, _sum: { priceWithDisc: true }, _count: { _all: true } }),
+      db.sale.groupBy({ by: ["cabinetSid", "type"], where: { ...cw, date: { gte: period.from, lt: period.to } }, _sum: { forPay: true }, _count: { _all: true } }),
     ]);
     cabOrders = og
-      .map(o => ({ sid: o.cabinetSid, sum: Number(o._sum.priceWithDisc ?? 0) }))
+      .map(o => ({ sid: o.cabinetSid, sum: Number(o._sum.priceWithDisc ?? 0), count: o._count._all }))
       .sort((a, b) => b.sum - a.sum)
-      .map(o => ({ k: nameOf(o.sid), v: money(o.sum) }));
-    const byCab = new Map<string, number>();
+      .map(o => ({ k: nameOf(o.sid), v: `${money(o.sum)} · ${fmtNum(o.count)}` }));
+    const byCab = new Map<string, { sum: number; count: number }>();
     for (const s of sg) {
-      const d = s.type === "S" ? Number(s._sum.forPay ?? 0) : s.type === "R" ? -Number(s._sum.forPay ?? 0) : 0;
-      byCab.set(s.cabinetSid, (byCab.get(s.cabinetSid) ?? 0) + d);
+      const cur = byCab.get(s.cabinetSid) ?? { sum: 0, count: 0 };
+      if (s.type === "S") { cur.sum += Number(s._sum.forPay ?? 0); cur.count += s._count._all; }
+      else if (s.type === "R") { cur.sum -= Number(s._sum.forPay ?? 0); }
+      byCab.set(s.cabinetSid, cur);
     }
-    cabBuyouts = [...byCab.entries()].sort((a, b) => b[1] - a[1]).map(([sid, sum]) => ({ k: nameOf(sid), v: money(sum) }));
+    cabBuyouts = [...byCab.entries()].sort((a, b) => b[1].sum - a[1].sum).map(([sid, v]) => ({ k: nameOf(sid), v: `${money(v.sum)} · ${fmtNum(v.count)}` }));
   }
 
   return (
@@ -113,11 +115,11 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
       ) : (
         <>
           <div className="cards tiles">
-            <PulseTile label="Заказы" value={money(t.ordersSum)}
-              rows={[{ k: "шт", v: fmtNum(t.ordersCount) }, ...cabOrders]}
+            <PulseTile label="Заказы" value={money(t.ordersSum)} valueNote={`${fmtNum(t.ordersCount)} шт`}
+              rows={cabOrders}
               items={ordersDetail} totalSkus={ordersItems.length} />
-            <PulseTile label="Выкупы (к перечислению)" value={money(t.buyoutsSum)}
-              rows={[{ k: "шт", v: fmtNum(t.buyoutsCount) }, { k: "возвраты", v: money(t.returnsSum) }, ...cabBuyouts]}
+            <PulseTile label="Выкупы (к перечислению)" value={money(t.buyoutsSum)} valueNote={`${fmtNum(t.buyoutsCount)} шт`}
+              rows={[{ k: "возвраты", v: money(t.returnsSum) }, ...cabBuyouts]}
               items={buyoutsDetail} totalSkus={buyoutsItems.length} />
             <Tile label="Реклама" value={money(t.advSpend)}
               chip={{ text: `ДРР ${fmtPct(t.drr)}`, tone: t.drr > 0.15 ? "bad" : t.drr > 0.1 ? "warn" : "ok" }} />
