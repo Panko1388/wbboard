@@ -127,6 +127,12 @@ td .code{font-size:11.5px;color:var(--mut)}
 .rolecard .perm{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line);font-size:13px}
 .tok{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px dashed var(--line)}
 .tok .bar{flex:1}
+.cabrow{padding:10px 0;border-bottom:1px dashed var(--line)}
+.cabrow-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cabrow-replace{margin-top:10px}
+.btn.sm{min-height:30px;padding:5px 12px;font-size:12.5px}
+.btn.danger{color:var(--bad);border-color:var(--bad-bg)}
+.btn.danger:hover{background:var(--bad-bg);border-color:var(--bad)}
 .banner{display:flex;gap:10px;align-items:center;background:var(--warn-bg);border:1px solid #f3ddb5;color:#8a5a10;
   padding:12px 16px;border-radius:12px;margin-bottom:18px;font-size:13.5px;max-width:860px}
 .banner b{font-weight:700}

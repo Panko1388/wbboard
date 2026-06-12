@@ -2,6 +2,7 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { saveCabinet, saveIntegration, runCollectorNow, savePlans } from "@/app/actions";
+import { CabinetRow } from "@/components/CabinetRow";
 
 export const dynamic = "force-dynamic";
 
@@ -42,15 +43,7 @@ export default async function SettingsPage() {
             const t = tokens.find(x => x.cabinetSid === c.sid);
             const daysLeft = t?.expiresAt ? Math.floor((t.expiresAt.getTime() - Date.now()) / 864e5) : null;
             return (
-              <div className="tok" key={c.sid}>
-                <b>{c.name}</b> <span className="sm mut">{c.sid}</span>
-                <span style={{ flex: 1 }} />
-                {t
-                  ? <span className={`chip ${daysLeft !== null && daysLeft < 14 ? "warn" : "ok"}`}>
-                      токен есть{daysLeft !== null ? ` · ${daysLeft} дн` : ""}
-                    </span>
-                  : <span className="chip bad">нет токена</span>}
-              </div>
+              <CabinetRow key={c.sid} sid={c.sid} name={c.name} hasToken={!!t} daysLeft={daysLeft} />
             );
           })}
           <form action={saveCabinet} className="frm" style={{ flexDirection: "column", alignItems: "stretch", marginTop: 10 }}>

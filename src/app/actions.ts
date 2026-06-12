@@ -254,12 +254,40 @@ export async function saveIntegration(fd: FormData) {
   revalidatePath("/settings");
 }
 
+export async function replaceToken(fd: FormData) {
+  await audit("cabinet_token_replace", { module: "settings", levelA: true });
+  const sid = s(fd, "sid");
+  const token = s(fd, "token");
+  if (!sid || !token) return;
+  await db.cabinetToken.upsert({
+    where: { cabinetSid: sid },
+    create: { cabinetSid: sid, tokenEnc: encrypt(token), issuedAt: new Date(), expiresAt: new Date(Date.now() + 180 * 864e5) },
+    update: { tokenEnc: encrypt(token), issuedAt: new Date(), expiresAt: new Date(Date.now() + 180 * 864e5) },
+  });
+  await db.cabinet.update({ where: { sid }, data: { active: true, tokenIssuedAt: new Date() } });
+  revalidatePath("/settings");
+}
+
+export async function deleteCabinet(fd: FormData) {
+  await audit("cabinet_delete", { module: "settings", levelA: true });
+  const sid = s(fd, "sid");
+  if (!sid) return;
+  // мягкое удаление: отключаем от сбора и убираем токен, но историю продаж/остатков НЕ трогаем
+  await db.cabinetToken.deleteMany({ where: { cabinetSid: sid } });
+  await db.cabinet.update({ where: { sid }, data: { active: false } });
+  revalidatePath("/settings");
+}
+
 export async function saveCabinet(fd: FormData) {
   await audit("cabinet_save", { module: "settings", levelA: true });
   const sid = s(fd, "sid");
-  const name = s(fd, "name") || sid;
+  const nameRaw = s(fd, "name");
   const token = s(fd, "token");
-  await db.cabinet.upsert({ where: { sid }, create: { sid, name }, update: { name } });
+  await db.cabinet.upsert({
+    where: { sid },
+    create: { sid, name: nameRaw || sid },
+    update: { active: true, ...(nameRaw ? { name: nameRaw } : {}) },
+  });
   if (token) {
     await db.cabinetToken.upsert({
       where: { cabinetSid: sid },
