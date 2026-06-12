@@ -1,5 +1,5 @@
 "use client";
-// Плитка Пульса с плавным раскрытием: клик по значению → список товаров с фото и кол-вом.
+// Плитка Пульса с плавным раскрытием: клик по ВСЕЙ плитке → список товаров с фото и кол-вом.
 import { useState } from "react";
 import { Photo } from "@/components/Photo";
 
@@ -21,23 +21,28 @@ export function PulseTile({
 
   return (
     <div className={`card tile expandable-tile${open ? " open" : ""}`}>
-      <div className="lbl">
-        <span>{label}</span>
-        {chip && <span className={`chip ${chip.tone}`}>{chip.text}</span>}
-      </div>
+      {/* вся верхняя часть плитки — одна кликабельная зона */}
       <button
-        className="big num tile-toggle"
+        type="button"
+        className="tile-head"
         onClick={() => can && setOpen(o => !o)}
         style={{ cursor: can ? "pointer" : "default" }}
         aria-expanded={open}
+        disabled={!can}
       >
-        {value}
-        {can && <span className={`caret${open ? " open" : ""}`} aria-hidden> ▸</span>}
+        <span className="lbl">
+          <span>{label}</span>
+          {chip && <span className={`chip ${chip.tone}`}>{chip.text}</span>}
+        </span>
+        <span className="big num">
+          {value}
+          {can && <span className={`caret${open ? " open" : ""}`} aria-hidden> ▸</span>}
+        </span>
+        {rows?.map(r => (
+          <span className="row" key={r.k}><span>{r.k}</span><b className="num">{r.v}</b></span>
+        ))}
+        {net && <span className="net num"><span>{net.k}</span><span>{net.v}</span></span>}
       </button>
-      {rows?.map(r => (
-        <div className="row" key={r.k}><span>{r.k}</span><b className="num">{r.v}</b></div>
-      ))}
-      {net && <div className="net num"><span>{net.k}</span><span>{net.v}</span></div>}
 
       <div className="tile-detail">
         <div className="tile-detail-inner">

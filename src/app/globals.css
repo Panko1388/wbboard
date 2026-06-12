@@ -320,14 +320,25 @@ td .code{font-size:11.5px;color:var(--mut)}
 [data-theme="glass"] .cab-seg button.on{background:linear-gradient(135deg,rgba(38,103,255,.95),rgba(122,92,255,.95));color:#fff}
 
 /* ── Пульс: раскрывающиеся плитки «Заказы»/«Выкупы» ── */
-.expandable-tile{align-self:start}
-.tile-toggle{display:inline-flex;align-items:baseline;gap:2px;background:none;border:none;padding:0;font:inherit;color:inherit}
-.expandable-tile .caret{font-size:13px;color:var(--mut);transition:transform .25s cubic-bezier(.2,.7,.3,1);display:inline-block}
+.expandable-tile{align-self:start;padding:0;overflow:hidden}
+/* вся верхняя часть плитки — одна кнопка-зона */
+.tile-head{display:block;width:100%;text-align:left;background:none;border:none;font:inherit;color:inherit;
+  padding:18px 20px;transition:background .15s ease}
+.tile-head:not(:disabled):hover{background:var(--acc-soft)}
+[data-theme="glass"] .tile-head:not(:disabled):hover{background:rgba(255,255,255,.4)}
+.tile-head .lbl{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.02em}
+.tile-head .big{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em;margin:8px 0 4px}
+.tile-head .row{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:4px}
+.tile-head .row b{color:var(--txt);font-weight:650}
+.tile-head .net{display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
+.expandable-tile .caret{font-size:14px;color:var(--mut);transition:transform .25s cubic-bezier(.2,.7,.3,1);display:inline-block}
 .expandable-tile .caret.open{transform:rotate(90deg);color:var(--acc)}
+.expandable-tile.open .tile-head{background:var(--acc-soft)}
+[data-theme="glass"] .expandable-tile.open .tile-head{background:rgba(255,255,255,.45)}
 .tile-detail{display:grid;grid-template-rows:0fr;transition:grid-template-rows .32s cubic-bezier(.2,.7,.3,1)}
-.expandable-tile.open .tile-detail{grid-template-rows:1fr;margin-top:12px}
+.expandable-tile.open .tile-detail{grid-template-rows:1fr}
 .tile-detail-inner{overflow:hidden;min-height:0}
-.tile-detail-list{max-height:340px;overflow:auto;border-top:1px solid var(--line);padding-top:6px}
+.tile-detail-list{max-height:340px;overflow:auto;border-top:1px solid var(--line);padding:6px 20px 16px}
 .dline{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px dashed var(--line)}
 .dline:last-child{border-bottom:none}
 .dline-name{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}
