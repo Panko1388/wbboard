@@ -1,5 +1,7 @@
 // Реклама: список кампаний (promotion/count) → fullstats v3 (≤50 кампаний, ≤31 дня).
-import { wbFetch, wbPost } from "@/lib/wb/client";
+// fullstats v3 — это GET с query-параметрами ids/beginDate/endDate; POST /adv/v2/fullstats
+// отключён WB 23.10.2025 (старый POST давал 405 «method not allowed, allowed GET, HEAD»).
+import { wbFetch } from "@/lib/wb/client";
 import { WB } from "@/lib/wb/endpoints";
 import { db } from "@/lib/db";
 
@@ -21,10 +23,14 @@ export async function collectAdv(cabinetSid: string, token: string): Promise<num
   let n = 0;
   for (let i = 0; i < ids.length; i += 50) {
     const chunk = ids.slice(i, i + 50);
-    const body = chunk.map(c => ({ id: c.id, interval: { begin: d1, end: d2 } }));
-    const stats = await wbPost<FullstatsRow[]>({ cabinetToken: token, url: WB.advFullstats, minIntervalMs: 60_000, body });
+    const stats = await wbFetch<FullstatsRow[]>({
+      cabinetToken: token,
+      url: WB.advFullstats,
+      minIntervalMs: 60_000,
+      params: { ids: chunk.map(c => c.id).join(","), beginDate: d1, endDate: d2 },
+    });
 
-    for (const st of stats ?? []) {
+    for (const st of Array.isArray(stats) ? stats : []) {
       const campType = chunk.find(c => c.id === st.advertId)?.type;
       for (const day of st.days ?? []) {
         const date = new Date(day.date.slice(0, 10));
