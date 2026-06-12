@@ -1,0 +1,67 @@
+name: wbboard
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wbboard
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wbboard}
+      POSTGRES_DB: wbboard
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wbboard"]
+      interval: 5s
+      retries: 10
+    # Наружу не публикуем (ADR-006). Для локальной разработки: docker compose up db и порт ниже
+    ports: ["127.0.0.1:5432:5432"]
+
+  app:
+    build: .
+    restart: unless-stopped
+    # seed НЕ при каждом старте (затирал кастомизацию) — запускать вручную: docker compose run --rm app npm run seed
+    command: sh -c "npx prisma db push --skip-generate && npm run start"
+    environment: &appenv
+      DATABASE_URL: postgresql://wbboard:${POSTGRES_PASSWORD:-wbboard}@db:5432/wbboard
+      AUTH_SECRET: ${AUTH_SECRET:?set in .env}
+      TOKEN_KEY: ${TOKEN_KEY:?set in .env}
+      TG_BOT_TOKEN: ${TG_BOT_TOKEN:-}
+      TG_CHAT_ID_OWNER: ${TG_CHAT_ID_OWNER:-}
+      MPSTATS_TOKEN: ${MPSTATS_TOKEN:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_MANAGER_PASSWORD: ${SEED_MANAGER_PASSWORD:-}
+      SEED_DEMO: ${SEED_DEMO:-1}
+      EST_LOGISTICS_RUB: ${EST_LOGISTICS_RUB:-55}
+      EST_STORAGE_RUB: ${EST_STORAGE_RUB:-6}
+      FX_ALERT_PCT: ${FX_ALERT_PCT:-5}
+      PHOTOCHECK_MOCK: ${PHOTOCHECK_MOCK:-1}
+      PHOTOCHECK_TARGET_MARG: ${PHOTOCHECK_TARGET_MARG:-0.15}
+      PHOTOCHECK_CARGO_RUB: ${PHOTOCHECK_CARGO_RUB:-35}
+      UPLOAD_DIR: /data/uploads
+    volumes: [uploads:/data/uploads]
+    depends_on:
+      db: { condition: service_healthy }
+    expose: ["3000"]
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: npm run worker
+    environment: *appenv
+    volumes: [uploads:/data/uploads]
+    depends_on:
+      db: { condition: service_healthy }
+      app: { condition: service_started }
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [app]
+
+volumes:
+  pgdata:
+  uploads:
+  caddy_data:

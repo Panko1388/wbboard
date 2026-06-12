@@ -1,0 +1,9 @@
+# Замените на свой домен — Caddy сам выпустит TLS-сертификат.
+# Без домена (по IP) оставьте :80.
+:80 {
+	reverse_proxy app:3000
+}
+
+# wbboard.example.ru {
+# 	reverse_proxy app:3000
+# }

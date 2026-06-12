@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1010 260" role="img" aria-label="WBoard">
+  <!-- Воссоздание логотипа Андре: синяя W + бирюзовый график роста + бары, «board» тёмным navy -->
+  <g>
+    <!-- W -->
+    <path fill="#2353c5" d="M28 52 h66 l46 132 33-96 h44 l33 96 L296 52 h66 L268 232 h-60 l-26-76 -26 76 h-60 Z"/>
+    <!-- бары в правой впадине W -->
+    <g>
+      <rect x="206" y="172" width="22" height="56" rx="4" fill="#35c9ce"/>
+      <rect x="234" y="148" width="22" height="80" rx="4" fill="#35c9ce"/>
+      <rect x="262" y="120" width="22" height="108" rx="4" fill="#2353c5" stroke="#f2f4f8" stroke-width="3"/>
+    </g>
+    <!-- линия роста с точками и стрелкой -->
+    <g stroke="#1fc4cb" stroke-width="11" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M76 130 L150 86 L208 96 L298 30"/>
+    </g>
+    <g fill="#1fc4cb">
+      <circle cx="76" cy="130" r="13"/>
+      <circle cx="150" cy="86" r="13"/>
+      <circle cx="208" cy="96" r="13"/>
+      <path d="M268 18 L322 12 L310 64 L292 40 Z"/>
+    </g>
+  </g>
+  <text x="380" y="208" font-family="Inter,-apple-system,'Segoe UI',Roboto,sans-serif" font-size="172" font-weight="800" letter-spacing="-4" fill="#1b2435">board</text>
+</svg>

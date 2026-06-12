@@ -1,0 +1,555 @@
+// WBboard — схема БД. Источник истины: vault projects/WBboard/files/50-metrics-spec-10x.md (§2 данные, §3 витрина, §16 валюта, §17 налоги)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ───────────────────────── Кабинеты, пользователи, RBAC ─────────────────────────
+
+enum TaxMode {
+  USN_VAT7   // факт Андре: УСН «Доходы» 2% + НДС 7% без вычетов
+  USN_VAT5
+  USN_VAT22  // УСН + НДС 22% с вычетами
+  OSNO       // НДС 22/10 с вычетами + НДФЛ
+}
+
+model Cabinet {
+  sid           String   @id // ID кабинета WB (как в финотчёте)
+  name          String
+  tokenIssuedAt DateTime? // токены живут 180 дней — алерт за 14 дней
+  taxMode       TaxMode  @default(USN_VAT7)
+  vatRate       Decimal  @default(0.07) @db.Decimal(5, 4)
+  usnRate       Decimal  @default(0.02) @db.Decimal(5, 4)
+  active        Boolean  @default(true)
+  products      Product[]
+}
+
+enum MoneyLevel {
+  A // все деньги: ₽ прибыли, COGS, постоянные расходы
+  B // маржа %, без ₽ прибыли компании и COGS
+  C // только операционные метрики
+}
+
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  name      String
+  passHash  String
+  twoFa     Boolean    @default(false)
+  roleId    String
+  role      Role       @relation(fields: [roleId], references: [id])
+  cabinets  String[]   // sid'ы, пусто = все
+  tags      String[]   // SKU-теги, пусто = все
+  createdAt DateTime   @default(now())
+  audit     AuditLog[]
+}
+
+model Role {
+  id         String     @id @default(cuid())
+  name       String     @unique // Собственник, Менеджер МП, Трафик, Финансист, Закупки
+  modules    String[]   // pulse, rnp, pnl, fin, products, adv, stocks, promo, settings
+  moneyLevel MoneyLevel @default(C)
+  users      User[]
+}
+
+model AuditLog {
+  id        BigInt   @id @default(autoincrement())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String   // login, export, edit_cogs, edit_role…
+  payload   Json?
+  createdAt DateTime @default(now())
+  @@index([userId, createdAt])
+}
+
+// ───────────────────────── Товары и себестоимость ─────────────────────────
+
+model Product {
+  nmId       BigInt   @id
+  cabinetSid String
+  cabinet    Cabinet  @relation(fields: [cabinetSid], references: [sid])
+  imtId      BigInt?  // склейка
+  vendorCode String
+  title      String
+  subject    String?  // предмет (для комиссии)
+  brand      String?
+  tags       String[]
+  photoUrl   String?
+  volumeL    Decimal? @db.Decimal(8, 3) // литраж карточки
+  wbVolumeL  Decimal? @db.Decimal(8, 3) // литраж по обмерам WB
+  vatRate    Decimal? @db.Decimal(5, 4) // override (для режимов с 10% на игрушки)
+  batches    CogsBatch[]
+  @@index([cabinetSid])
+}
+
+enum Currency {
+  RUB
+  USD
+  CNY
+}
+
+// COGS партиями с фиксацией валюты и курса (§16). valid_from/to — партия активна по датам (FIFO упрощённо)
+model CogsBatch {
+  id             String   @id @default(cuid())
+  nmId           BigInt
+  product        Product  @relation(fields: [nmId], references: [nmId])
+  qty            Int
+  currency       Currency
+  priceCur       Decimal  @db.Decimal(12, 4) // цена за шт в валюте закупки
+  rateAtPurchase Decimal  @db.Decimal(10, 4) // курс на дату закупки (фикс навсегда)
+  deliveryPerUnit Decimal @default(0) @db.Decimal(10, 2) // карго на единицу, ₽
+  noGtd          Boolean  @default(true) // карго без ГТД → на режимах с вычетом импортный НДС не зачитывается
+  purchasedAt    DateTime
+  validFrom      DateTime
+  validTo        DateTime?
+  @@index([nmId, validFrom])
+}
+
+// ───────────────────────── Сырые данные WB API ─────────────────────────
+
+model Order {
+  id             String   @id // srid
+  date           DateTime
+  lastChangeDate DateTime
+  nmId           BigInt
+  cabinetSid     String
+  totalPrice     Decimal  @db.Decimal(12, 2)
+  priceWithDisc  Decimal  @db.Decimal(12, 2)
+  spp            Decimal? @db.Decimal(6, 2)
+  warehouse      String?
+  region         String?  // oblast — для % локализации
+  isCancel       Boolean  @default(false)
+  @@index([date, nmId])
+  @@index([cabinetSid, date])
+  @@index([cabinetSid, lastChangeDate]) // курсор инкрементального сбора каждые 30 мин (риск-аудит)
+}
+
+model Sale {
+  saleId        String   @id
+  date          DateTime
+  nmId          BigInt
+  cabinetSid    String
+  forPay        Decimal  @db.Decimal(12, 2)
+  priceWithDisc Decimal? @db.Decimal(12, 2) // розница продажи — налоговая база (null у старых строк → fallback /0.75)
+  type          String   // S — продажа, R — возврат, B — ...
+  @@index([date, nmId])
+}
+
+// Истории остатков WB не даёт — снапшоты 2 р/день, копим с первого дня
+model StockSnapshot {
+  id              BigInt   @id @default(autoincrement())
+  takenAt         DateTime
+  nmId            BigInt
+  cabinetSid      String
+  warehouse       String
+  qty             Int
+  inWayToClient   Int      @default(0)
+  inWayFromClient Int      @default(0)
+  @@index([nmId, takenAt])
+}
+
+// Еженедельный финотчёт v5 — построчно + типизированные суммы (51 поле спеки → ключевые колонки, остальное в raw)
+model FinreportRow {
+  rrdId      BigInt   @id
+  realizationreportId BigInt
+  rrDt       DateTime
+  nmId       BigInt?
+  cabinetSid String
+  docType    String?
+  supplierOperName String?
+  retailAmount   Decimal @default(0) @db.Decimal(14, 2)
+  ppvzForPay     Decimal @default(0) @db.Decimal(14, 2)
+  deliveryRub    Decimal @default(0) @db.Decimal(14, 2)
+  storageFee     Decimal @default(0) @db.Decimal(14, 2)
+  acceptance     Decimal @default(0) @db.Decimal(14, 2)
+  penalty        Decimal @default(0) @db.Decimal(14, 2)
+  deduction      Decimal @default(0) @db.Decimal(14, 2)
+  acquiringFee   Decimal @default(0) @db.Decimal(14, 2)
+  ppvzVw         Decimal @default(0) @db.Decimal(14, 2) // вознаграждение WB
+  raw        Json
+  @@index([rrDt, nmId])
+  @@index([cabinetSid, rrDt])
+}
+
+model Deduction {
+  id         BigInt   @id @default(autoincrement())
+  date       DateTime
+  nmId       BigInt?
+  cabinetSid String
+  bonusTypeName String // «Оказание услуг ВБ.Продвижение» и т.п.
+  amount     Decimal  @db.Decimal(14, 2)
+  @@index([cabinetSid, date])
+}
+
+model Commission {
+  id          Int     @id @default(autoincrement())
+  parentName  String
+  subjectName String  @unique
+  kgvpWb      Decimal @db.Decimal(6, 3) // склад WB %
+  kgvpMp      Decimal @db.Decimal(6, 3) // FBS
+  kgvpSupplier Decimal @db.Decimal(6, 3)
+  fetchedAt   DateTime @default(now())
+}
+
+model TariffBox {
+  id          Int      @id @default(autoincrement())
+  date        DateTime
+  warehouse   String
+  deliveryCoef Decimal @db.Decimal(8, 4)
+  deliveryBase Decimal @db.Decimal(8, 2) // за 1 л
+  deliveryLiter Decimal @db.Decimal(8, 2) // доп. л
+  storageCoef  Decimal @db.Decimal(8, 4)
+  storageBase  Decimal @db.Decimal(8, 4)
+  storageLiter Decimal @db.Decimal(8, 4)
+  @@unique([date, warehouse])
+}
+
+model AdvDaily {
+  id         BigInt   @id @default(autoincrement())
+  date       DateTime
+  nmId       BigInt?
+  cabinetSid String
+  campaignId BigInt
+  campaignType String? // auto / search-catalog
+  views      Int      @default(0)
+  clicks     Int      @default(0)
+  spend      Decimal  @default(0) @db.Decimal(12, 2)
+  ordersRub  Decimal  @default(0) @db.Decimal(12, 2)
+  @@unique([date, campaignId, nmId])
+  @@index([nmId, date])
+}
+
+model FunnelDaily {
+  id        BigInt   @id @default(autoincrement())
+  date      DateTime
+  nmId      BigInt
+  openCard  Int      @default(0)
+  addToCart Int      @default(0)
+  orders    Int      @default(0)
+  buyouts   Int      @default(0)
+  @@unique([date, nmId])
+}
+
+model JamCluster {
+  id        BigInt   @id @default(autoincrement())
+  dateFrom  DateTime
+  dateTo    DateTime
+  nmId      BigInt
+  cluster   String
+  frequency Int      @default(0)
+  avgPosition Decimal? @db.Decimal(8, 2)
+  openCard  Int      @default(0)
+  addToCart Int      @default(0)
+  orders    Int      @default(0)
+  @@unique([dateFrom, dateTo, nmId, cluster])
+}
+
+model SearchPosition {
+  id        BigInt   @id @default(autoincrement())
+  date      DateTime
+  nmId      BigInt
+  query     String
+  position  Int?     // null = 500+
+  promoPosition Int?
+  @@unique([date, nmId, query])
+}
+
+// ───────────────────────── Валюта (§16) ─────────────────────────
+
+model FxRate {
+  date       DateTime @id @db.Date
+  usdRubCash Decimal? @db.Decimal(10, 4) // stbank.by: USD_продажа_BYN / (RUB_покупка_BYN/100)
+  usdRubCbr  Decimal? @db.Decimal(10, 4)
+  cnyRub     Decimal? @db.Decimal(10, 4)
+  source     String   @default("stbank.by")
+}
+
+// ───────────────────────── Витрина и ручные данные ─────────────────────────
+
+// Дневная витрина (§3): все дашборды читают только её. 19+ ключей: orders_sum_rub, orders_count,
+// orders_count_local, buyouts_count, buyouts_sum_rub, expected_buyouts_sum_rub, expected_buyouts_dyn,
+// orders_dyn, adv_sum, adv_percent, avg_price_with_spp, spp, profit_with_adv, profit_without_adv,
+// stocks, stocks_total, stocks_enough_for, stocks_enough_for_with_buyout_perc, wrn_count
+model DailySkuMetric {
+  date  DateTime @db.Date
+  nmId  BigInt
+  key   String
+  value Decimal  @db.Decimal(16, 4)
+  @@id([date, nmId, key])
+  @@index([nmId, key, date])
+}
+
+model IndirectExpense {
+  id        String   @id @default(cuid())
+  category  String   // ФОТ, аренда склада, контент, подписки…
+  amount    Decimal  @db.Decimal(12, 2)
+  monthFrom DateTime @db.Date // амортизация по периодам
+  monthTo   DateTime @db.Date
+  cabinetSid String? // null = на всю компанию, аллокация по доле выручки
+  comment   String?
+}
+
+model Target {
+  key   String @id // target_marg, drr_limit, min_stock_days, fx_alert_threshold…
+  value Json
+}
+
+// ───────────────────────── Служебные ─────────────────────────
+
+model CollectorRun {
+  id         BigInt    @id @default(autoincrement())
+  name       String    // orders, sales, finreport, stocks, adv, tariffs, funnel, fx
+  cabinetSid String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  status     String    @default("running") // ok | error | running
+  rowsUpserted Int     @default(0)
+  error      String?
+  @@index([name, startedAt])
+}
+
+model RawApiResponse {
+  id        BigInt   @id @default(autoincrement())
+  collector String
+  fetchedAt DateTime @default(now())
+  payload   Json
+  @@index([collector, fetchedAt])
+}
+
+model Alert {
+  id        BigInt    @id @default(autoincrement())
+  type      String    // drr_over_limit, oos_risk, fx_delta, token_expiry, collector_silent, finreport_drift
+  severity  String    // bad | warn | info
+  nmId      BigInt?
+  cabinetSid String?
+  payload   Json
+  createdAt DateTime  @default(now())
+  sentAt    DateTime? // отправлен в TG
+  @@index([type, createdAt])
+}
+
+// ───────────────────────── Токены и интеграции ─────────────────────────
+
+// WB-токен кабинета: шифруется AES-GCM, ключ TOKEN_KEY в env (ADR-006)
+model CabinetToken {
+  cabinetSid String    @id
+  tokenEnc   String
+  scope      String?
+  issuedAt   DateTime  @default(now())
+  expiresAt  DateTime? // issued + 180 дней — алерт за 14
+  lastOkAt   DateTime?
+}
+
+// Внешние интеграции: mpstats, openrouter, otapi. Токен шифруется как у кабинетов
+model Integration {
+  key      String    @id // mpstats | openrouter | otapi
+  tokenEnc String?
+  config   Json?
+  active   Boolean   @default(false)
+  lastOkAt DateTime?
+}
+
+// ───────────────── Поставки: закупка → карго → мой склад → отгрузка WB ─────────────────
+
+model Supplier {
+  id      String  @id @default(cuid())
+  name    String
+  country String  @default("CN")
+  contact String?
+  comment String?
+  orders  PurchaseOrder[]
+}
+
+enum PoStatus {
+  DRAFT        // черновик
+  ORDERED      // оплачен поставщику
+  IN_TRANSIT   // карго в пути
+  AT_WAREHOUSE // принят на мой склад (создаёт партию COGS)
+  CLOSED       // полностью отгружен на WB
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  number       String    @unique // ЗК-2026-001
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id])
+  status       PoStatus  @default(DRAFT)
+  currency     Currency  @default(USD)
+  fxRate       Decimal?  @db.Decimal(10, 4) // курс на дату оплаты — фиксируется в партию COGS
+  orderedAt    DateTime?
+  etaAt        DateTime? // ожидаемое прибытие (lead time Китая)
+  arrivedAt    DateTime?
+  cargoCostRub Decimal   @default(0) @db.Decimal(12, 2) // карго итого ₽ → на единицу при приёмке
+  comment      String?
+  items        PurchaseOrderItem[]
+  createdAt    DateTime  @default(now())
+  @@index([status])
+}
+
+model PurchaseOrderItem {
+  id          String        @id @default(cuid())
+  poId        String
+  po          PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  nmId        BigInt
+  qty         Int
+  priceCur    Decimal       @db.Decimal(12, 4) // за шт в валюте заказа
+  receivedQty Int           @default(0) // фактически принято на мой склад
+  cogsBatchId String?       // партия COGS, созданная при приёмке
+  @@index([nmId])
+}
+
+// Движения моего склада: + приход (приёмка ЗК), − отгрузка на WB / списание
+model WarehouseMove {
+  id      BigInt   @id @default(autoincrement())
+  nmId    BigInt
+  qty     Int      // со знаком
+  reason  String   // po_receive | shipment | writeoff | correction
+  refId   String?  // id ЗК или отгрузки
+  comment String?
+  movedAt DateTime @default(now())
+  @@index([nmId, movedAt])
+}
+
+// Текущий остаток моего склада (денормализация суммы движений)
+model MyStock {
+  nmId      BigInt   @id
+  qty       Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+enum ShipmentStatus {
+  DRAFT
+  SENT     // едет на склад WB
+  ACCEPTED // принято WB полностью
+  PARTIAL  // принято с расхождениями
+  CANCELLED
+}
+
+model Shipment {
+  id         String         @id @default(cuid())
+  number     String         @unique // ОТ-2026-001
+  cabinetSid String
+  wbSupplyId String?        // номер поставки в ЛК WB
+  warehouse  String         // склад назначения WB
+  boxCount   Int            @default(0)
+  status     ShipmentStatus @default(DRAFT)
+  sentAt     DateTime?
+  acceptedAt DateTime?
+  comment    String?
+  items      ShipmentItem[]
+  createdAt  DateTime       @default(now())
+  @@index([cabinetSid, status])
+}
+
+model ShipmentItem {
+  id          String   @id @default(cuid())
+  shipmentId  String
+  shipment    Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  nmId        BigInt
+  qty         Int
+  acceptedQty Int      @default(0) // сверка с приёмкой WB
+  @@index([nmId])
+}
+
+// ───────────────────────── MPstats: внешняя аналитика рынка ─────────────────────────
+
+// Снапшот ниши/категории (выручка, продавцы, монополизация)
+model MpCategorySnapshot {
+  id             BigInt   @id @default(autoincrement())
+  path           String   // «Дом/Хранение вещей»
+  date           DateTime @db.Date
+  revenue30      Decimal? @db.Decimal(16, 2) // выручка ниши 30д
+  sales30        Int?
+  items          Int?     // карточек всего
+  itemsWithSales Int?
+  sellers        Int?
+  avgPrice       Decimal? @db.Decimal(12, 2)
+  top10Share     Decimal? @db.Decimal(6, 2) // % выручки топ-10 (монополизация)
+  raw            Json?
+  @@unique([path, date])
+}
+
+// Чужая карточка под мониторингом
+model MpCompetitor {
+  id        String              @id @default(cuid())
+  nmId      BigInt              @unique
+  title     String?
+  brand     String?
+  category  String?
+  photoUrl  String?
+  notes     String?
+  active    Boolean             @default(true)
+  snapshots MpCompetitorDaily[]
+  createdAt DateTime            @default(now())
+}
+
+model MpCompetitorDaily {
+  id       BigInt       @id @default(autoincrement())
+  compId   String
+  comp     MpCompetitor @relation(fields: [compId], references: [id], onDelete: Cascade)
+  date     DateTime     @db.Date
+  price    Decimal?     @db.Decimal(12, 2)
+  sales    Int?         // шт/день
+  revenue  Decimal?     @db.Decimal(14, 2)
+  balance  Int?         // остатки
+  rating   Decimal?     @db.Decimal(4, 2)
+  comments Int?
+  raw      Json?
+  @@unique([compId, date])
+}
+
+// Ключевые фразы под мониторингом
+model MpKeyword {
+  id     String          @id @default(cuid())
+  phrase String          @unique
+  active Boolean         @default(true)
+  stats  MpKeywordDaily[]
+  createdAt DateTime     @default(now())
+}
+
+model MpKeywordDaily {
+  id        BigInt    @id @default(autoincrement())
+  kwId      String
+  kw        MpKeyword @relation(fields: [kwId], references: [id], onDelete: Cascade)
+  date      DateTime  @db.Date
+  frequency Int?      // частотность WB
+  results   Int?      // карточек в выдаче
+  raw       Json?
+  @@unique([kwId, date])
+}
+
+// ───────────────────────── Фото-чек (фаза 3, мок до подключения LLM/OTAPI) ─────────────────────────
+
+enum PhotoCheckStatus {
+  QUEUED
+  ANALYZING // Vision LLM: ключи, категория
+  SOURCING  // поиск по картинке 1688
+  DONE
+  ERROR
+}
+
+model PhotoCheck {
+  id             String           @id @default(cuid())
+  userId         String?
+  imagePath      String           // файл в /uploads
+  status         PhotoCheckStatus @default(QUEUED)
+  keywords       String[]         @default([])
+  category       String?
+  wbAvgPrice     Decimal?         @db.Decimal(12, 2) // средняя цена аналогов на WB
+  niche          Json?            // оценка ниши (выручка, конкуренция)
+  source1688     Json?            // [{title,url,priceCny,minQty,img}]
+  bestPriceCny   Decimal?         @db.Decimal(12, 2)
+  bestPriceRub   Decimal?         @db.Decimal(12, 2) // с карго
+  maxBuyPriceRub Decimal?         @db.Decimal(12, 2) // «вход интересен при закупке ≤ X ₽»
+  verdict        String?
+  provider       String           @default("mock") // mock | live
+  error          String?
+  createdAt      DateTime         @default(now())
+  finishedAt     DateTime?
+  @@index([createdAt])
+}
