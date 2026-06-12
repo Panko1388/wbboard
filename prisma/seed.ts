@@ -28,6 +28,12 @@ async function main() {
   const owner = await db.role.findUniqueOrThrow({ where: { name: "Собственник" } });
   const manager = await db.role.findUniqueOrThrow({ where: { name: "Менеджер МП" } });
 
+  // Фирменные названия кабинетов (просьба Андре) — применяется на каждом деплое
+  const CAB_NAMES: Record<string, string> = { protashchik: "BIORICA", suzdaltsev: "PINKLAB" };
+  for (const [sid, name] of Object.entries(CAB_NAMES)) {
+    await db.cabinet.updateMany({ where: { sid }, data: { name } });
+  }
+
   // У менеджера СВОЙ пароль — общий с владельцем обнулял весь RBAC (аудит #2)
   const adminPass = process.env.SEED_ADMIN_PASSWORD || "wbboard123";
   const managerPass = process.env.SEED_MANAGER_PASSWORD || "manager123";
