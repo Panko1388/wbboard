@@ -98,11 +98,14 @@ export default async function SettingsPage() {
             <h2>Последние запуски</h2>
             <div className="ul">
               {runs.map(r => (
-                <div className="li" key={String(r.id)}>
-                  <span>{r.name}{r.cabinetSid ? ` · ${r.cabinetSid}` : ""} <span className="sm mut">{r.startedAt.toLocaleString("ru-RU")}</span></span>
-                  <span className={`chip ${r.status === "ok" ? "ok" : r.status === "error" ? "bad" : "mut"}`}>
-                    {r.status === "ok" ? `ok · ${r.rowsUpserted}` : r.status}
-                  </span>
+                <div key={String(r.id)}>
+                  <div className="li">
+                    <span>{r.name}{r.cabinetSid ? ` · ${r.cabinetSid}` : ""} <span className="sm mut">{r.startedAt.toLocaleString("ru-RU")}</span></span>
+                    <span className={`chip ${r.status === "ok" ? "ok" : r.status === "error" ? "bad" : "mut"}`} title={r.error ?? undefined}>
+                      {r.status === "ok" ? `ok · ${r.rowsUpserted}` : r.status}
+                    </span>
+                  </div>
+                  {r.status === "error" && r.error && <div className="sm runerr">{r.error}</div>}
                 </div>
               ))}
             </div>
