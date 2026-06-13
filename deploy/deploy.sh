@@ -30,7 +30,7 @@ if [ ! -f "$ENVF" ]; then
   ADMPWD=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c 12)
   MGRPWD=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c 12)
   cat > "$ENVF" <<EOF
-DATABASE_URL=postgresql://$DBU:$DBP@wbboard-db-1:5432/$APPDB
+DATABASE_URL=postgresql://$DBU:$DBP@wbboard-db-1:5432/$APPDB?connection_limit=20&pool_timeout=20
 AUTH_SECRET=$(openssl rand -hex 32)
 TOKEN_KEY=$(openssl rand -hex 32)
 SEED_ADMIN_PASSWORD=$ADMPWD
@@ -53,7 +53,7 @@ else
   fi
   # перенаправить существующий .env на БД приложения (идемпотентно)
   DBPE=$(printf '%s' "$DBP" | sed 's/[&|\\]/\\&/g')
-  sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://$DBU:$DBPE@wbboard-db-1:5432/$APPDB|" "$ENVF"
+  sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://$DBU:$DBPE@wbboard-db-1:5432/$APPDB?connection_limit=20\&pool_timeout=20|" "$ENVF"
   LOG "$ENVF уже есть — секреты сохранены, DATABASE_URL → $APPDB"
 fi
 
