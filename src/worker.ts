@@ -84,7 +84,11 @@ async function cleanup() {
   // 90 дней истории остатков достаточно для «дней обеспеченности»; глубже — не нужно.
   const snaps = await db.stockSnapshot.deleteMany({ where: { takenAt: { lt: d(90) } } });
   const photos = await db.photoCheck.deleteMany({ where: { createdAt: { lt: d(60) } } });
-  console.log(`[cleanup] raw:${raw.count} runs:${runs.count} alerts:${alerts.count} snaps:${snaps.count} photos:${photos.count}`);
+  // Освежаем статистику планировщика после ретеншна: без этого планы деградируют на больших
+  // таблицах (Order/Sale/FinreportRow) и дашборды резко тормозят — инцидент «медленный Пульс» 13.06.2026.
+  await db.$executeRawUnsafe('ANALYZE "Order", "Sale", "AdvDaily", "FinreportRow", "Product", "StockSnapshot"')
+    .catch((e: unknown) => console.error("[cleanup] ANALYZE", e));
+  console.log(`[cleanup] raw:${raw.count} runs:${runs.count} alerts:${alerts.count} snaps:${snaps.count} photos:${photos.count} +ANALYZE`);
 }
 
 // Свежесть: алерт, если ключевые коллекторы молчат дольше порога

@@ -2,6 +2,7 @@
 //   forPay(продажи − возвраты) − логистика(оценка/факт) − хранение − COGS активной партии
 //   − реклама − налог (УСН 2% + НДС 7/107) − аллоцированные косвенные.
 // Факт из финотчёта перекрывает оценку на странице P&L (drift% — на дашборде).
+import { cache } from "react";
 import { db } from "@/lib/db";
 
 export type Period = { from: Date; to: Date };
@@ -13,15 +14,15 @@ export function periodDays(p: Period): number {
 const num = (v: unknown) => (v == null ? 0 : Number(v));
 
 /** Скоуп кабинетов: список пользователя или ВСЕ АКТИВНЫЕ (демо/выключенные не подмешиваются — аудит #8) */
-export async function scopedCabinets(userCabinets: string[]): Promise<string[]> {
+export const scopedCabinets = cache(async (userCabinets: string[]): Promise<string[]> => {
   if (userCabinets.length) return userCabinets;
   const cabs = await db.cabinet.findMany({ where: { active: true }, select: { sid: true } });
   return cabs.map(c => c.sid);
-}
+});
 
 /** COGS за период: партия, активная на ДЕНЬ продажи; один запрос партий + один продаж (без N+1, аудит #15).
  *  Возвраты уменьшают нетто-штуки дня (товар вернулся на склад). */
-export async function cogsForPeriod(p: Period, cabinets: string[]): Promise<{ total: number; byNm: Map<string, { units: number; cogs: number }> }> {
+export const cogsForPeriod = cache(async (p: Period, cabinets: string[]): Promise<{ total: number; byNm: Map<string, { units: number; cogs: number }> }> => {
   const byNm = new Map<string, { units: number; cogs: number }>();
   if (!cabinets.length) return { total: 0, byNm };
 
@@ -68,7 +69,7 @@ export async function cogsForPeriod(p: Period, cabinets: string[]): Promise<{ to
     total += r.net * unit;
   }
   return { total, byNm };
-}
+});
 
 export type PulseTotals = {
   ordersSum: number; ordersCount: number; buyoutsSum: number; buyoutsCount: number;
