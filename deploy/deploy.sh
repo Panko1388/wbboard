@@ -65,6 +65,24 @@ BASE=mirror.gcr.io/library/node:22-alpine
 docker pull $BASE >/dev/null 2>&1 || { BASE=node:22-alpine; docker pull $BASE >/dev/null 2>&1 || true; }
 docker build --build-arg BASE=$BASE -t wbboard-app:latest . || { echo "❌ Сборка не удалась"; docker start wbboard-worker 2>/dev/null; exit 1; }
 
+# ── 2.5 предохранитель изоляции от Складского бота (capture.py) ───
+# Бот держит таблицы sales_raw/orders_raw/cursors в "$DBN". prisma db push
+# приводит ЦЕЛЕВУЮ БД к схеме Prisma и снёс бы их. Поэтому гарантируем:
+#  (а) push идёт ТОЛЬКО в $APPDB; (б) в $APPDB нет таблиц бота. Иначе — стоп без правок.
+LOG "Предохранитель изоляции (Складской бот)"
+case "$(grep '^DATABASE_URL=' "$ENVF")" in
+  */"$APPDB"|*/"$APPDB"\?*) : ;;
+  *) echo "❌ СТОП: DATABASE_URL не указывает на $APPDB — db push мог бы задеть БД бота. Прервано, ничего не тронуто."; exit 1 ;;
+esac
+BOT_HIT=$(docker exec wbboard-db-1 psql -U "$DBU" -d "$APPDB" -tAc \
+  "SELECT string_agg(tablename, ',') FROM pg_tables WHERE schemaname='public' AND tablename IN ('sales_raw','orders_raw','cursors')" 2>/dev/null | tr -d '[:space:]')
+if [ -n "$BOT_HIT" ]; then
+  echo "❌ СТОП: в целевой БД '$APPDB' найдены таблицы Складского бота ($BOT_HIT)."
+  echo "   WBboard смотрит в чужую БД — db push НЕ запущен, данные бота целы. Проверь DATABASE_URL."
+  exit 1
+fi
+echo "✓ Целевая БД $APPDB изолирована от данных бота — db push безопасен"
+
 # ── 3. схема БД + сид (роли/пользователи) + импорт WB-токенов ─────
 # Из старого /opt/wbboard/.env берём ТОЛЬКО WB_TOKEN_* (со снятием кавычек):
 # целиком файл подключать нельзя — его DATABASE_URL="..." в кавычках ломает Prisma.
