@@ -9,6 +9,7 @@ import { PulseTile } from "@/components/PulseTile";
 import { DoodleChart } from "@/components/doodles";
 import { PeriodSeg } from "@/components/PeriodSeg";
 import { CurrencySeg } from "@/components/CurrencySeg";
+import { FxTrend } from "@/components/FxTrend";
 import { OrdersChart } from "@/components/charts";
 
 export const dynamic = "force-dynamic";
@@ -32,14 +33,16 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
   const curCab = ck.get("wbboard_cab")?.value || "all";
   const cab = cabinetScope(user, curCab);
 
-  const [t, days, alerts, fresh, drift, fx] = await Promise.all([
+  const [t, days, alerts, fresh, drift, fx, fxHist] = await Promise.all([
     pulseTotals(period, cab),
     rnpByDay(period, cab),
     db.alert.findMany({ orderBy: { createdAt: "desc" }, take: 6 }),
     freshness(),
     weeklyDrift(cab),
     db.fxRate.findFirst({ orderBy: { date: "desc" } }),
+    db.fxRate.findMany({ orderBy: { date: "desc" }, take: 30, select: { usdRubCash: true, usdRubCbr: true } }),
   ]);
+  const fxPoints = fxHist.map(r => Number(r.usdRubCash ?? r.usdRubCbr ?? 0)).filter(v => v > 0).reverse();
 
   // Валюта: ₽ по умолчанию или $ по курсу (usdRubCash приоритетнее ЦБ — §16)
   const rate = Number(fx?.usdRubCash ?? fx?.usdRubCbr ?? 0) || 0;
@@ -108,6 +111,7 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
       </p>
       <PeriodSeg base="/pulse" current={key} />
       <CurrencySeg current={cur} rate={rate} />
+      <FxTrend points={fxPoints} source={fx?.source ?? undefined} />
 
       {!hasData ? (
         <Empty

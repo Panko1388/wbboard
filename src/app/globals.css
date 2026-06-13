@@ -345,6 +345,13 @@ td .code{font-size:11.5px;color:var(--mut)}
 .cab-item{display:flex;flex-direction:column;gap:2px}
 .cab-name{font-size:10.5px;font-weight:700;letter-spacing:.05em;color:var(--mut);text-transform:uppercase}
 .cab-val{font-size:14px;font-weight:700;color:var(--txt);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+/* мини-график курса $ в шапке Пульса */
+.fxtrend{display:inline-flex;align-items:center;gap:8px;margin-left:10px;vertical-align:middle;padding:3px 11px;border:1px solid var(--line);border-radius:99px;background:var(--panel)}
+.fxtrend-rate{font-size:12.5px;font-weight:700;color:var(--txt);font-variant-numeric:tabular-nums}
+.fxspark{display:block}
+.fxtrend-delta{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.fxtrend-delta.up{color:var(--bad)}   /* курс ₽/$ вырос — рубль слабее, закуп дороже */
+.fxtrend-delta.down{color:var(--ok)}  /* курс упал — закуп дешевле */
 .tile-head .net{display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
 .expandable-tile .caret{font-size:14px;color:var(--mut);transition:transform .25s cubic-bezier(.2,.7,.3,1);display:inline-block}
 .expandable-tile .caret.open{transform:rotate(90deg);color:var(--acc)}
