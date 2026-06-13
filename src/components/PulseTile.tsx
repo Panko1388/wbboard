@@ -37,7 +37,7 @@ export function PulseTile({
         </span>
         <span className="big num">
           {value}
-          {valueNote && <span className="bignote mut"> · {valueNote}</span>}
+          {valueNote && <span className="bignote mut">{valueNote}</span>}
           {can && <span className={`caret${open ? " open" : ""}`} aria-hidden> ▸</span>}
         </span>
         {rows?.map(r => (

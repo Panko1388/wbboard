@@ -74,7 +74,7 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
     cabOrders = og
       .map(o => ({ sid: o.cabinetSid, sum: Number(o._sum.priceWithDisc ?? 0), count: o._count._all }))
       .sort((a, b) => b.sum - a.sum)
-      .map(o => ({ k: nameOf(o.sid), v: `${money(o.sum)} · ${fmtNum(o.count)}` }));
+      .map(o => ({ k: nameOf(o.sid), v: `${money(o.sum)} · ${fmtNum(o.count)} шт` }));
     const byCab = new Map<string, { sum: number; count: number }>();
     for (const s of sg) {
       const cur = byCab.get(s.cabinetSid) ?? { sum: 0, count: 0 };
@@ -82,7 +82,7 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
       else if (s.type === "R") { cur.sum -= Number(s._sum.forPay ?? 0); }
       byCab.set(s.cabinetSid, cur);
     }
-    cabBuyouts = [...byCab.entries()].sort((a, b) => b[1].sum - a[1].sum).map(([sid, v]) => ({ k: nameOf(sid), v: `${money(v.sum)} · ${fmtNum(v.count)}` }));
+    cabBuyouts = [...byCab.entries()].sort((a, b) => b[1].sum - a[1].sum).map(([sid, v]) => ({ k: nameOf(sid), v: `${money(v.sum)} · ${fmtNum(v.count)} шт` }));
   }
 
   return (

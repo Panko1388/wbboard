@@ -1,14 +1,14 @@
 // Период из query (?p=) — общий для всех страниц
 import type { Period } from "@/lib/pl";
 
-export type PeriodKey = "today" | "yesterday" | "7d" | "30d" | "month";
+export type PeriodKey = "today" | "yesterday" | "7d" | "month" | "lastMonth";
 
 export const PERIODS: { key: PeriodKey; label: string; hint: string }[] = [
   { key: "today", label: "Сегодня", hint: "С 00:00 МСК по сейчас" },
   { key: "yesterday", label: "Вчера", hint: "Полные вчерашние сутки" },
-  { key: "7d", label: "7 дней", hint: "Скользящие: последние 7 дней включая сегодня" },
-  { key: "30d", label: "30 дней", hint: "Скользящие: последние 30 дней включая сегодня" },
-  { key: "month", label: "Месяц", hint: "Календарный: с 1-го числа текущего месяца" },
+  { key: "7d", label: "7 дней", hint: "Последние 7 дней включая сегодня" },
+  { key: "month", label: "Текущий месяц", hint: "С 1-го числа этого месяца по сегодня включительно" },
+  { key: "lastMonth", label: "Прошлый месяц", hint: "Весь предыдущий календарный месяц" },
 ];
 
 const valid = (p?: string) => PERIODS.some(x => x.key === p);
@@ -28,10 +28,16 @@ export function resolvePeriod(p?: string, fallback: PeriodKey = "today"): { key:
     case "today": return { key, period: { from: today, to: tomorrow } };
     case "yesterday": return { key, period: { from: new Date(today.getTime() - 864e5), to: today } };
     case "7d": return { key, period: { from: new Date(today.getTime() - 6 * 864e5), to: tomorrow } };
-    case "30d": return { key, period: { from: new Date(today.getTime() - 29 * 864e5), to: tomorrow } };
     case "month": {
+      // Текущий месяц: с 1-го числа включительно по сегодня (to=tomorrow, т.к. верхняя граница исключающая)
       const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
       return { key, period: { from, to: tomorrow } };
+    }
+    case "lastMonth": {
+      // Прошлый месяц: весь предыдущий календарный месяц (1-е прошлого … 1-е текущего, исключая)
+      const curMonthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+      const from = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+      return { key, period: { from, to: curMonthStart } };
     }
   }
 }

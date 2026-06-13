@@ -62,7 +62,7 @@ h2{font-size:17px;font-weight:700;letter-spacing:-.01em;margin:32px 0 14px}
 .tiles{grid-template-columns:repeat(5,1fr)}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh);padding:18px 20px}
 .tile .lbl{font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.02em;display:flex;justify-content:space-between;gap:8px}
-.tile .big{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:8px 0 4px}
+.tile .big{font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.12;margin:8px 0 4px;font-variant-numeric:tabular-nums}
 .tile .row{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:4px}
 .tile .row b{color:var(--txt);font-weight:650}
 .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
@@ -327,15 +327,15 @@ td .code{font-size:11.5px;color:var(--mut)}
 [data-theme="glass"] .cab-seg button.on{background:linear-gradient(135deg,rgba(38,103,255,.95),rgba(122,92,255,.95));color:#fff}
 
 /* ── Пульс: раскрывающиеся плитки «Заказы»/«Выкупы» ── */
-.expandable-tile{align-self:start;padding:0;overflow:hidden}
-/* вся верхняя часть плитки — одна кнопка-зона */
-.tile-head{display:block;width:100%;text-align:left;background:none;border:none;font:inherit;color:inherit;
-  padding:18px 20px;transition:background .15s ease}
+.expandable-tile{padding:0;overflow:hidden;display:flex;flex-direction:column}
+/* вся верхняя часть плитки — одна кнопка-зона; flex:1 — чтобы плитка тянулась на всю высоту ряда */
+.tile-head{display:flex;flex-direction:column;width:100%;text-align:left;background:none;border:none;font:inherit;color:inherit;
+  padding:18px 20px;transition:background .15s ease;flex:1 0 auto}
 .tile-head:not(:disabled):hover{background:var(--acc-soft)}
 [data-theme="glass"] .tile-head:not(:disabled):hover{background:rgba(255,255,255,.4)}
 .tile-head .lbl{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--mut);font-weight:600;letter-spacing:.02em}
-.tile-head .big{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em;margin:8px 0 4px}
-.tile-head .big .bignote{font-size:15px;font-weight:600;letter-spacing:0}
+.tile-head .big{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.12;margin:8px 0 4px;font-variant-numeric:tabular-nums}
+.tile-head .big .bignote{display:block;font-size:13.5px;font-weight:600;letter-spacing:0;margin-top:2px}
 .tile-head .row{display:flex;justify-content:space-between;font-size:13px;color:var(--mut);margin-top:4px}
 .tile-head .row b{color:var(--txt);font-weight:650}
 .tile-head .net{display:flex;justify-content:space-between;font-weight:800;font-size:13.5px;border-top:1px solid var(--line);margin-top:6px;padding-top:6px}
