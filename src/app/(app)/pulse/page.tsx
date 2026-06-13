@@ -11,8 +11,18 @@ import { PeriodSeg } from "@/components/PeriodSeg";
 import { CurrencySeg } from "@/components/CurrencySeg";
 import { FxTrend } from "@/components/FxTrend";
 import { OrdersChart } from "@/components/charts";
+import { unstable_cache } from "next/cache";
 
 export const dynamic = "force-dynamic";
+
+// weeklyDrift тяжёлая (читает FinreportRow ~2.9 млн строк) и меняется раз в неделю —
+// кэшируем на 30 мин, чтобы не блокировать рендер Пульса на каждой загрузке
+// (инцидент «медленный Пульс / weeklyDrift ~42 с» 13.06.2026).
+const driftCached = unstable_cache(
+  async (cabs: string[]) => weeklyDrift(cabs),
+  ["pulse-weekly-drift"],
+  { revalidate: 1800 },
+);
 
 const ALERT_LABELS: Record<string, string> = {
   collector_error: "Ошибка коллектора",
@@ -33,15 +43,17 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
   const curCab = ck.get("wbboard_cab")?.value || "all";
   const cab = cabinetScope(user, curCab);
 
-  const [t, days, alerts, fresh, drift, fx, fxHist] = await Promise.all([
+  const [t, days, alerts, fresh, driftRaw, fx, fxHist] = await Promise.all([
     pulseTotals(period, cab),
     rnpByDay(period, cab),
     db.alert.findMany({ orderBy: { createdAt: "desc" }, take: 6 }),
     freshness(),
-    weeklyDrift(cab),
+    driftCached(cab),
     db.fxRate.findFirst({ orderBy: { date: "desc" } }),
     db.fxRate.findMany({ orderBy: { date: "desc" }, take: 30, select: { usdRubCash: true, usdRubCbr: true } }),
   ]);
+  // unstable_cache сериализует Date → строки: восстанавливаем объекты Date для toLocaleDateString
+  const drift = driftRaw ? { ...driftRaw, weekStart: new Date(driftRaw.weekStart), weekEnd: new Date(driftRaw.weekEnd) } : null;
   const fxPoints = fxHist.map(r => Number(r.usdRubCash ?? r.usdRubCbr ?? 0)).filter(v => v > 0).reverse();
   // дневные ряды для мини-графиков в плитках (как в Shopify/Lemon Squeezy)
   const sparkOrders = days.map(d => d.ordersSum);
