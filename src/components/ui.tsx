@@ -1,11 +1,12 @@
 // Серверные UI-компоненты в стиле прототипа
 import Link from "next/link";
 import { Photo } from "@/components/Photo";
+import { Sparkline } from "@/components/Sparkline";
 
 export function Tile(props: {
   label: string; value: string; chip?: { text: string; tone: "ok" | "warn" | "bad" | "mut" };
-  rows?: { k: string; v: string }[]; breakdown?: { name: string; value: string }[];
-  net?: { k: string; v: string }; selected?: boolean;
+  rows?: { k: string; v: string }[]; breakdown?: { name: string; value: string; sub?: string }[];
+  spark?: number[]; net?: { k: string; v: string }; selected?: boolean;
 }) {
   return (
     <div className={`card tile${props.selected ? " sel" : ""}`}>
@@ -14,6 +15,7 @@ export function Tile(props: {
         {props.chip && <span className={`chip ${props.chip.tone}`}>{props.chip.text}</span>}
       </div>
       <div className="big num">{props.value}</div>
+      {props.spark && props.spark.length > 1 && <Sparkline points={props.spark} />}
       {props.rows?.map(r => (
         <div className="row" key={r.k}><span>{r.k}</span><b className="num">{r.v}</b></div>
       ))}
@@ -21,7 +23,7 @@ export function Tile(props: {
         <div className="cab-split">
           {props.breakdown.map(b => (
             <div className="cab-item" key={b.name}>
-              <span className="cab-name">{b.name}</span>
+              <span className="cab-name">{b.name}{b.sub ? <span className="cab-share"> · {b.sub}</span> : null}</span>
               <span className="cab-val num">{b.value}</span>
             </div>
           ))}

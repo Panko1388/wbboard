@@ -43,6 +43,10 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
     db.fxRate.findMany({ orderBy: { date: "desc" }, take: 30, select: { usdRubCash: true, usdRubCbr: true } }),
   ]);
   const fxPoints = fxHist.map(r => Number(r.usdRubCash ?? r.usdRubCbr ?? 0)).filter(v => v > 0).reverse();
+  // дневные ряды для мини-графиков в плитках (как в Shopify/Lemon Squeezy)
+  const sparkOrders = days.map(d => d.ordersSum);
+  const sparkBuyouts = days.map(d => d.buyoutsSum);
+  const sparkAdv = days.map(d => d.advSpend);
 
   // Валюта: ₽ по умолчанию или $ по курсу (usdRubCash приоритетнее ЦБ — §16)
   const rate = Number(fx?.usdRubCash ?? fx?.usdRubCbr ?? 0) || 0;
@@ -64,9 +68,9 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
   }));
 
   // Разбивка по кабинетам — показываем под суммой в плитках, когда выбрано «Все кабинеты»
-  let cabOrders: { name: string; value: string }[] = [];
-  let cabBuyouts: { name: string; value: string }[] = [];
-  let cabAdv: { name: string; value: string }[] = [];
+  let cabOrders: { name: string; value: string; sub?: string }[] = [];
+  let cabBuyouts: { name: string; value: string; sub?: string }[] = [];
+  let cabAdv: { name: string; value: string; sub?: string }[] = [];
   if (curCab === "all" && hasData) {
     const cabsList = await db.cabinet.findMany({ where: { active: true }, select: { sid: true, name: true } });
     const nameOf = (sid: string) => cabsList.find(c => c.sid === sid)?.name ?? sid;
@@ -83,12 +87,13 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
     for (const s of sg) { const a = get(s.cabinetSid); if (s.type === "S") { a.bSum += Number(s._sum.forPay ?? 0); a.bCnt += s._count._all; } else if (s.type === "R") { a.bSum -= Number(s._sum.forPay ?? 0); } }
     for (const x of ag) { const a = get(x.cabinetSid); a.adv = Number(x._sum.spend ?? 0); }
     const ent = [...m.entries()];
+    const shareOf = (part: number, total: number) => total > 0 ? fmtPct(part / total, 0) : undefined;
     cabOrders = ent.filter(([, a]) => a.oSum > 0).sort((p, q) => q[1].oSum - p[1].oSum)
-      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.oSum)} · ${fmtNum(a.oCnt)} шт` }));
+      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.oSum)} · ${fmtNum(a.oCnt)} шт`, sub: shareOf(a.oSum, t.ordersSum) }));
     cabBuyouts = ent.filter(([, a]) => a.bSum !== 0).sort((p, q) => q[1].bSum - p[1].bSum)
-      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.bSum)} · ${fmtNum(a.bCnt)} шт` }));
+      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.bSum)} · ${fmtNum(a.bCnt)} шт`, sub: shareOf(a.bSum, t.buyoutsSum) }));
     cabAdv = ent.filter(([, a]) => a.adv > 0).sort((p, q) => q[1].adv - p[1].adv)
-      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.adv)} · ДРР ${fmtPct(a.oSum ? a.adv / a.oSum : 0)}` }));
+      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.adv)} · ДРР ${fmtPct(a.oSum ? a.adv / a.oSum : 0)}`, sub: shareOf(a.adv, t.advSpend) }));
   }
 
   return (
@@ -123,15 +128,15 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
         <>
           <div className="cards tiles">
             <PulseTile label="Заказы" value={money(t.ordersSum)} valueNote={`${fmtNum(t.ordersCount)} шт`}
-              breakdown={cabOrders}
+              spark={sparkOrders} breakdown={cabOrders}
               items={ordersDetail} totalSkus={ordersItems.length} />
             <PulseTile label="Выкупы (к перечислению)" value={money(t.buyoutsSum)} valueNote={`${fmtNum(t.buyoutsCount)} шт`}
-              rows={[{ k: "возвраты", v: money(t.returnsSum) }]}
+              spark={sparkBuyouts} rows={[{ k: "возвраты", v: money(t.returnsSum) }]}
               breakdown={cabBuyouts}
               items={buyoutsDetail} totalSkus={buyoutsItems.length} />
             <Tile label="Реклама" value={money(t.advSpend)}
               chip={{ text: `ДРР ${fmtPct(t.drr)}`, tone: t.drr > 0.15 ? "bad" : t.drr > 0.1 ? "warn" : "ok" }}
-              breakdown={cabAdv} />
+              spark={sparkAdv} breakdown={cabAdv} />
             {lvl === "A" && (
               <Tile label="COGS + логистика" value={money(t.cogs + t.logistics)}
                 rows={[{ k: "себестоимость", v: money(t.cogs) }, { k: "логистика+хран.", v: money(t.logistics + t.storage) }]} />

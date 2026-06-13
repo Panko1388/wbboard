@@ -2,17 +2,19 @@
 // Плитка Пульса с плавным раскрытием: клик по ВСЕЙ плитке → список товаров с фото и кол-вом.
 import { useState } from "react";
 import { Photo } from "@/components/Photo";
+import { Sparkline } from "@/components/Sparkline";
 
 export type TileItem = { nmId: number; title: string; vendorCode: string; count: number; sum: string };
 
 export function PulseTile({
-  label, value, valueNote, rows, breakdown, chip, net, items, totalSkus,
+  label, value, valueNote, spark, rows, breakdown, chip, net, items, totalSkus,
 }: {
   label: string;
   value: string;
   valueNote?: string;
+  spark?: number[];
   rows?: { k: string; v: string }[];
-  breakdown?: { name: string; value: string }[];
+  breakdown?: { name: string; value: string; sub?: string }[];
   chip?: { text: string; tone: "ok" | "warn" | "bad" | "mut" };
   net?: { k: string; v: string };
   items: TileItem[];
@@ -38,9 +40,10 @@ export function PulseTile({
         </span>
         <span className="big num">
           {value}
-          {valueNote && <span className="bignote mut">{valueNote}</span>}
           {can && <span className={`caret${open ? " open" : ""}`} aria-hidden> ▸</span>}
+          {valueNote && <span className="bignote mut">{valueNote}</span>}
         </span>
+        {spark && spark.length > 1 && <Sparkline points={spark} />}
         {rows?.map(r => (
           <span className="row" key={r.k}><span>{r.k}</span><b className="num">{r.v}</b></span>
         ))}
@@ -48,7 +51,7 @@ export function PulseTile({
           <span className="cab-split">
             {breakdown.map(b => (
               <span className="cab-item" key={b.name}>
-                <span className="cab-name">{b.name}</span>
+                <span className="cab-name">{b.name}{b.sub ? <span className="cab-share"> · {b.sub}</span> : null}</span>
                 <span className="cab-val num">{b.value}</span>
               </span>
             ))}
