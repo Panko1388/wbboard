@@ -61,28 +61,31 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
   }));
 
   // Разбивка по кабинетам — показываем под суммой в плитках, когда выбрано «Все кабинеты»
-  let cabOrders: { k: string; v: string }[] = [];
-  let cabBuyouts: { k: string; v: string }[] = [];
+  let cabOrders: { name: string; value: string }[] = [];
+  let cabBuyouts: { name: string; value: string }[] = [];
+  let cabAdv: { name: string; value: string }[] = [];
   if (curCab === "all" && hasData) {
     const cabsList = await db.cabinet.findMany({ where: { active: true }, select: { sid: true, name: true } });
     const nameOf = (sid: string) => cabsList.find(c => c.sid === sid)?.name ?? sid;
     const cw = cab.length ? { cabinetSid: { in: cab } } : {};
-    const [og, sg] = await Promise.all([
+    const [og, sg, ag] = await Promise.all([
       db.order.groupBy({ by: ["cabinetSid"], where: { ...cw, date: { gte: period.from, lt: period.to }, isCancel: false }, _sum: { priceWithDisc: true }, _count: { _all: true } }),
       db.sale.groupBy({ by: ["cabinetSid", "type"], where: { ...cw, date: { gte: period.from, lt: period.to } }, _sum: { forPay: true }, _count: { _all: true } }),
+      db.advDaily.groupBy({ by: ["cabinetSid"], where: { ...cw, date: { gte: period.from, lt: period.to } }, _sum: { spend: true } }),
     ]);
-    cabOrders = og
-      .map(o => ({ sid: o.cabinetSid, sum: Number(o._sum.priceWithDisc ?? 0), count: o._count._all }))
-      .sort((a, b) => b.sum - a.sum)
-      .map(o => ({ k: nameOf(o.sid), v: `${money(o.sum)} · ${fmtNum(o.count)} шт` }));
-    const byCab = new Map<string, { sum: number; count: number }>();
-    for (const s of sg) {
-      const cur = byCab.get(s.cabinetSid) ?? { sum: 0, count: 0 };
-      if (s.type === "S") { cur.sum += Number(s._sum.forPay ?? 0); cur.count += s._count._all; }
-      else if (s.type === "R") { cur.sum -= Number(s._sum.forPay ?? 0); }
-      byCab.set(s.cabinetSid, cur);
-    }
-    cabBuyouts = [...byCab.entries()].sort((a, b) => b[1].sum - a[1].sum).map(([sid, v]) => ({ k: nameOf(sid), v: `${money(v.sum)} · ${fmtNum(v.count)} шт` }));
+    type Agg = { oSum: number; oCnt: number; bSum: number; bCnt: number; adv: number };
+    const m = new Map<string, Agg>();
+    const get = (sid: string) => { let a = m.get(sid); if (!a) { a = { oSum: 0, oCnt: 0, bSum: 0, bCnt: 0, adv: 0 }; m.set(sid, a); } return a; };
+    for (const o of og) { const a = get(o.cabinetSid); a.oSum = Number(o._sum.priceWithDisc ?? 0); a.oCnt = o._count._all; }
+    for (const s of sg) { const a = get(s.cabinetSid); if (s.type === "S") { a.bSum += Number(s._sum.forPay ?? 0); a.bCnt += s._count._all; } else if (s.type === "R") { a.bSum -= Number(s._sum.forPay ?? 0); } }
+    for (const x of ag) { const a = get(x.cabinetSid); a.adv = Number(x._sum.spend ?? 0); }
+    const ent = [...m.entries()];
+    cabOrders = ent.filter(([, a]) => a.oSum > 0).sort((p, q) => q[1].oSum - p[1].oSum)
+      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.oSum)} · ${fmtNum(a.oCnt)} шт` }));
+    cabBuyouts = ent.filter(([, a]) => a.bSum !== 0).sort((p, q) => q[1].bSum - p[1].bSum)
+      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.bSum)} · ${fmtNum(a.bCnt)} шт` }));
+    cabAdv = ent.filter(([, a]) => a.adv > 0).sort((p, q) => q[1].adv - p[1].adv)
+      .map(([sid, a]) => ({ name: nameOf(sid), value: `${money(a.adv)} · ДРР ${fmtPct(a.oSum ? a.adv / a.oSum : 0)}` }));
   }
 
   return (
@@ -116,16 +119,18 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
         <>
           <div className="cards tiles">
             <PulseTile label="Заказы" value={money(t.ordersSum)} valueNote={`${fmtNum(t.ordersCount)} шт`}
-              rows={cabOrders}
+              breakdown={cabOrders}
               items={ordersDetail} totalSkus={ordersItems.length} />
             <PulseTile label="Выкупы (к перечислению)" value={money(t.buyoutsSum)} valueNote={`${fmtNum(t.buyoutsCount)} шт`}
-              rows={[{ k: "возвраты", v: money(t.returnsSum) }, ...cabBuyouts]}
+              rows={[{ k: "возвраты", v: money(t.returnsSum) }]}
+              breakdown={cabBuyouts}
               items={buyoutsDetail} totalSkus={buyoutsItems.length} />
             <Tile label="Реклама" value={money(t.advSpend)}
-              chip={{ text: `ДРР ${fmtPct(t.drr)}`, tone: t.drr > 0.15 ? "bad" : t.drr > 0.1 ? "warn" : "ok" }} />
+              chip={{ text: `ДРР ${fmtPct(t.drr)}`, tone: t.drr > 0.15 ? "bad" : t.drr > 0.1 ? "warn" : "ok" }}
+              breakdown={cabAdv} />
             {lvl === "A" && (
               <Tile label="COGS + логистика" value={money(t.cogs + t.logistics)}
-                rows={[{ k: "себестоимость", v: money(t.cogs) }, { k: "логистика+хранение", v: money(t.logistics + t.storage) }]} />
+                rows={[{ k: "себестоимость", v: money(t.cogs) }, { k: "логистика+хран.", v: money(t.logistics + t.storage) }]} />
             )}
             {lvl !== "C" && (
               <Tile label={lvl === "A" ? "Прибыль (оценка)" : "Маржа (оценка)"}

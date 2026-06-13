@@ -33,7 +33,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
             <thead>
               <tr>
                 <th>Товар</th><th>Заказы шт</th><th>Заказы ₽</th><th>Выкупы шт</th><th>Выкупы ₽</th>
-                <th>Реклама</th>{lvl === "A" && <th>COGS</th>}{lvl !== "C" && <th>{lvl === "A" ? "Прибыль" : "Маржа"}</th>}
+                <th>Реклама</th><th>ДРР</th>{lvl === "A" && <th>COGS</th>}{lvl !== "C" && <th>{lvl === "A" ? "Прибыль" : "Маржа"}</th>}
                 {lvl !== "C" && <th>Маржа %</th>}<th>Остаток</th><th>Хватит на</th>
               </tr>
             </thead>
@@ -46,6 +46,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   <td className="num">{fmtNum(r.buyoutsCount)}</td>
                   <td className="num">{fmtRub(r.buyoutsSum)}</td>
                   <td className="num">{fmtRub(r.advSpend)}</td>
+                  <td className="num">
+                    {r.drr > 0
+                      ? <span className={`chip ${r.drr > 0.15 ? "bad" : r.drr > 0.1 ? "warn" : "ok"}`}>{fmtPct(r.drr)}</span>
+                      : <span className="chip mut">—</span>}
+                  </td>
                   {lvl === "A" && <td className="num">{r.cogs ? fmtRub(r.cogs) : <span className="chip warn">нет COGS</span>}</td>}
                   {lvl !== "C" && <td className="num"><b>{lvl === "A" ? fmtRub(r.profit) : fmtPct(r.marg)}</b></td>}
                   {lvl !== "C" && (

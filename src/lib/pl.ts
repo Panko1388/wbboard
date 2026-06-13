@@ -202,7 +202,7 @@ export async function rnpByDay(p: Period, userCabinets: string[]): Promise<DayRo
 export type SkuRow = {
   nmId: number; vendorCode: string; title: string; photoUrl: string | null;
   ordersCount: number; ordersSum: number; buyoutsCount: number; buyoutsSum: number;
-  advSpend: number; cogs: number; profit: number; marg: number; stock: number; stockDays: number | null;
+  advSpend: number; cogs: number; profit: number; marg: number; drr: number; stock: number; stockDays: number | null;
 };
 
 /** Таблица по SKU за период + остатки и обеспеченность */
@@ -275,6 +275,7 @@ export async function skuTable(p: Period, userCabinets: string[]): Promise<SkuRo
       ordersCount: o?._count ?? 0, ordersSum: num(o?._sum.priceWithDisc),
       buyoutsCount, buyoutsSum, advSpend, cogs, profit,
       marg: buyoutsSum ? profit / buyoutsSum : 0,
+      drr: num(o?._sum.priceWithDisc) > 0 ? advSpend / num(o?._sum.priceWithDisc) : 0,
       stock, stockDays: perDay > 0 ? Math.round(stock / perDay) : null,
     });
   }

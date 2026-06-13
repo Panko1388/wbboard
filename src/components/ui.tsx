@@ -4,7 +4,8 @@ import { Photo } from "@/components/Photo";
 
 export function Tile(props: {
   label: string; value: string; chip?: { text: string; tone: "ok" | "warn" | "bad" | "mut" };
-  rows?: { k: string; v: string }[]; net?: { k: string; v: string }; selected?: boolean;
+  rows?: { k: string; v: string }[]; breakdown?: { name: string; value: string }[];
+  net?: { k: string; v: string }; selected?: boolean;
 }) {
   return (
     <div className={`card tile${props.selected ? " sel" : ""}`}>
@@ -16,6 +17,16 @@ export function Tile(props: {
       {props.rows?.map(r => (
         <div className="row" key={r.k}><span>{r.k}</span><b className="num">{r.v}</b></div>
       ))}
+      {props.breakdown && props.breakdown.length > 0 && (
+        <div className="cab-split">
+          {props.breakdown.map(b => (
+            <div className="cab-item" key={b.name}>
+              <span className="cab-name">{b.name}</span>
+              <span className="cab-val num">{b.value}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {props.net && <div className="net num"><span>{props.net.k}</span><span>{props.net.v}</span></div>}
     </div>
   );

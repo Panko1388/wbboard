@@ -6,12 +6,13 @@ import { Photo } from "@/components/Photo";
 export type TileItem = { nmId: number; title: string; vendorCode: string; count: number; sum: string };
 
 export function PulseTile({
-  label, value, valueNote, rows, chip, net, items, totalSkus,
+  label, value, valueNote, rows, breakdown, chip, net, items, totalSkus,
 }: {
   label: string;
   value: string;
   valueNote?: string;
   rows?: { k: string; v: string }[];
+  breakdown?: { name: string; value: string }[];
   chip?: { text: string; tone: "ok" | "warn" | "bad" | "mut" };
   net?: { k: string; v: string };
   items: TileItem[];
@@ -43,6 +44,16 @@ export function PulseTile({
         {rows?.map(r => (
           <span className="row" key={r.k}><span>{r.k}</span><b className="num">{r.v}</b></span>
         ))}
+        {breakdown && breakdown.length > 0 && (
+          <span className="cab-split">
+            {breakdown.map(b => (
+              <span className="cab-item" key={b.name}>
+                <span className="cab-name">{b.name}</span>
+                <span className="cab-val num">{b.value}</span>
+              </span>
+            ))}
+          </span>
+        )}
         {net && <span className="net num"><span>{net.k}</span><span>{net.v}</span></span>}
       </button>
 
