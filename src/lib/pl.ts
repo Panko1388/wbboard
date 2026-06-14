@@ -283,6 +283,29 @@ export async function skuTable(p: Period, userCabinets: string[]): Promise<SkuRo
   return rows.sort((a, b) => b.ordersSum - a.ordersSum);
 }
 
+/** История СПП по каждому SKU за 30 дней (медиана СПП по заказам дня). Данные — только из API заказов. */
+export const sppSeriesBySku = cache(async (userCabinets: string[]): Promise<Map<string, { current: number; series: number[] }>> => {
+  const cabinets = await scopedCabinets(userCabinets);
+  const out = new Map<string, { current: number; series: number[] }>();
+  if (!cabinets.length) return out;
+  const from = new Date(Date.now() - 30 * 864e5);
+  const rows = await db.$queryRaw<{ nmid: bigint; spp: number }[]>`
+    SELECT o."nmId" nmid,
+           percentile_cont(0.5) WITHIN GROUP (ORDER BY o."spp")::float spp
+    FROM "Order" o
+    WHERE o."date" >= ${from} AND o."cabinetSid" = ANY(${cabinets}) AND o."spp" IS NOT NULL
+    GROUP BY o."nmId", date_trunc('day', o."date")
+    ORDER BY o."nmId", date_trunc('day', o."date")`;
+  const bySku = new Map<string, number[]>();
+  for (const r of rows) {
+    const k = r.nmid.toString();
+    if (!bySku.has(k)) bySku.set(k, []);
+    bySku.get(k)!.push(Math.round(r.spp));
+  }
+  for (const [k, series] of bySku) out.set(k, { current: series[series.length - 1] ?? 0, series });
+  return out;
+});
+
 /** P&L за месяц: факт финотчёта + оценка сверху */
 export async function pnlMonth(year: number, month: number, userCabinets: string[]) {
   const from = new Date(Date.UTC(year, month - 1, 1));

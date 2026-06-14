@@ -1,11 +1,12 @@
 // Товары: юнит-экономика по SKU + ввод партии COGS
 import { cookies } from "next/headers";
 import { requireModule, moneyLevel, cabinetScope } from "@/lib/auth";
-import { skuTable } from "@/lib/pl";
+import { skuTable, sppSeriesBySku } from "@/lib/pl";
 import { resolvePeriod } from "@/lib/period";
 import { fmtRub, fmtNum, fmtPct } from "@/lib/format";
 import { PeriodSeg } from "@/components/PeriodSeg";
 import { Empty, Pimg } from "@/components/ui";
+import { Sparkline } from "@/components/Sparkline";
 import { DoodleChart } from "@/components/doodles";
 import { addCogsBatch } from "@/app/actions";
 
@@ -16,7 +17,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
   const { p } = await searchParams;
   const { key, period } = resolvePeriod(p, "today");
   const cab = cabinetScope(user, (await cookies()).get("wbboard_cab")?.value);
-  const rows = await skuTable(period, cab);
+  const [rows, sppMap] = await Promise.all([skuTable(period, cab), sppSeriesBySku(cab)]);
   const lvl = moneyLevel(user);
 
   return (
@@ -33,7 +34,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
             <thead>
               <tr>
                 <th>Товар</th><th>Заказы шт</th><th>Заказы ₽</th><th>Выкупы шт</th><th>Выкупы ₽</th>
-                <th>Реклама</th><th>ДРР</th>{lvl === "A" && <th>COGS</th>}{lvl !== "C" && <th>{lvl === "A" ? "Прибыль" : "Маржа"}</th>}
+                <th>Реклама</th><th>ДРР</th><th>СПП · 30д</th>{lvl === "A" && <th>COGS</th>}{lvl !== "C" && <th>{lvl === "A" ? "Прибыль" : "Маржа"}</th>}
                 {lvl !== "C" && <th>Маржа %</th>}<th>Остаток</th><th>Хватит на</th>
               </tr>
             </thead>
@@ -50,6 +51,14 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                     {r.drr > 0
                       ? <span className={`chip ${r.drr > 0.15 ? "bad" : r.drr > 0.1 ? "warn" : "ok"}`}>{fmtPct(r.drr)}</span>
                       : <span className="chip mut">—</span>}
+                  </td>
+                  <td className="num">
+                    {(() => {
+                      const s = sppMap.get(String(r.nmId));
+                      return s && s.current > 0
+                        ? <span className="spp-cell"><b>{s.current}%</b><Sparkline points={s.series} className="spp-spark" /></span>
+                        : <span className="chip mut">—</span>;
+                    })()}
                   </td>
                   {lvl === "A" && <td className="num">{r.cogs ? fmtRub(r.cogs) : <span className="chip warn">нет COGS</span>}</td>}
                   {lvl !== "C" && <td className="num"><b>{lvl === "A" ? fmtRub(r.profit) : fmtPct(r.marg)}</b></td>}
