@@ -7,11 +7,12 @@ import { Sparkline } from "@/components/Sparkline";
 export type TileItem = { nmId: number; title: string; vendorCode: string; count: number; sum: string };
 
 export function PulseTile({
-  label, value, valueNote, spark, rows, breakdown, chip, net, items, totalSkus,
+  label, value, valueNote, delta, spark, rows, breakdown, chip, net, items, totalSkus,
 }: {
   label: string;
   value: string;
   valueNote?: string;
+  delta?: { pct: number; goodUp?: boolean };
   spark?: number[];
   rows?: { k: string; v: string }[];
   breakdown?: { name: string; value: string; sub?: string }[];
@@ -40,6 +41,7 @@ export function PulseTile({
         </span>
         <span className="big num">
           {value}
+          {delta && <span className={`tdelta ${(delta.pct >= 0) === (delta.goodUp ?? true) ? "up" : "down"}`}>{delta.pct >= 0 ? "▲" : "▼"} {Math.abs(delta.pct)}%</span>}
           {can && <span className={`caret${open ? " open" : ""}`} aria-hidden> ▸</span>}
           {valueNote && <span className="bignote mut">{valueNote}</span>}
         </span>

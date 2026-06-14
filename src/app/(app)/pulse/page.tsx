@@ -42,9 +42,13 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
   const lvl = moneyLevel(user);
   const curCab = ck.get("wbboard_cab")?.value || "all";
   const cab = cabinetScope(user, curCab);
+  // предыдущий равный период — для дельт ▲▼
+  const prevLen = period.to.getTime() - period.from.getTime();
+  const prevPeriod = { from: new Date(period.from.getTime() - prevLen), to: period.from };
 
-  const [t, days, alerts, fresh, driftRaw, fx, fxHist] = await Promise.all([
+  const [t, prev, days, alerts, fresh, driftRaw, fx, fxHist] = await Promise.all([
     pulseTotals(period, cab),
+    pulseTotals(prevPeriod, cab),
     rnpByDay(period, cab),
     db.alert.findMany({ orderBy: { createdAt: "desc" }, take: 6 }),
     freshness(),
@@ -59,6 +63,12 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
   const sparkOrders = days.map(d => d.ordersSum);
   const sparkBuyouts = days.map(d => d.buyoutsSum);
   const sparkAdv = days.map(d => d.advSpend);
+  // дельты к предыдущему равному периоду
+  const dlt = (cur: number, prv: number) => (prv > 0 ? Math.round(((cur - prv) / prv) * 100) : null);
+  const dOrders = dlt(t.ordersSum, prev.ordersSum);
+  const dBuyouts = dlt(t.buyoutsSum, prev.buyoutsSum);
+  const dAdv = dlt(t.advSpend, prev.advSpend);
+  const dProfit = dlt(t.profit, prev.profit);
 
   // Валюта: ₽ по умолчанию или $ по курсу (usdRubCash приоритетнее ЦБ — §16)
   const rate = Number(fx?.usdRubCash ?? fx?.usdRubCbr ?? 0) || 0;
@@ -140,14 +150,17 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
         <>
           <div className="cards tiles">
             <PulseTile label="Заказы" value={money(t.ordersSum)} valueNote={`${fmtNum(t.ordersCount)} шт`}
+              delta={dOrders != null ? { pct: dOrders, goodUp: true } : undefined}
               spark={sparkOrders} breakdown={cabOrders}
               items={ordersDetail} totalSkus={ordersItems.length} />
             <PulseTile label="Выкупы (к перечислению)" value={money(t.buyoutsSum)} valueNote={`${fmtNum(t.buyoutsCount)} шт`}
+              delta={dBuyouts != null ? { pct: dBuyouts, goodUp: true } : undefined}
               spark={sparkBuyouts} rows={[{ k: "возвраты", v: money(t.returnsSum) }]}
               breakdown={cabBuyouts}
               items={buyoutsDetail} totalSkus={buyoutsItems.length} />
             <Tile label="Реклама" value={money(t.advSpend)}
               chip={{ text: `ДРР ${fmtPct(t.drr)}`, tone: t.drr > 0.15 ? "bad" : t.drr > 0.1 ? "warn" : "ok" }}
+              delta={dAdv != null ? { pct: dAdv, goodUp: false } : undefined}
               spark={sparkAdv} breakdown={cabAdv} />
             {lvl === "A" && (
               <Tile label="COGS + логистика" value={money(t.cogs + t.logistics)}
@@ -157,6 +170,7 @@ export default async function PulsePage({ searchParams }: { searchParams: Promis
               <Tile label={lvl === "A" ? "Прибыль (оценка)" : "Маржа (оценка)"}
                 value={lvl === "A" ? money(t.profit) : fmtPct(t.marg)}
                 chip={{ text: fmtPct(t.marg), tone: t.marg > 0.15 ? "ok" : t.marg > 0 ? "warn" : "bad" }}
+                delta={lvl === "A" && dProfit != null ? { pct: dProfit, goodUp: true } : undefined}
                 net={lvl === "A" ? { k: "налог (оценка)", v: money(t.tax) } : undefined} />
             )}
           </div>

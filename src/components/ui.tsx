@@ -6,7 +6,7 @@ import { Sparkline } from "@/components/Sparkline";
 export function Tile(props: {
   label: string; value: string; chip?: { text: string; tone: "ok" | "warn" | "bad" | "mut" };
   rows?: { k: string; v: string }[]; breakdown?: { name: string; value: string; sub?: string }[];
-  spark?: number[]; net?: { k: string; v: string }; selected?: boolean;
+  spark?: number[]; delta?: { pct: number; goodUp?: boolean }; net?: { k: string; v: string }; selected?: boolean;
 }) {
   return (
     <div className={`card tile${props.selected ? " sel" : ""}`}>
@@ -14,7 +14,9 @@ export function Tile(props: {
         <span>{props.label}</span>
         {props.chip && <span className={`chip ${props.chip.tone}`}>{props.chip.text}</span>}
       </div>
-      <div className="big num">{props.value}</div>
+      <div className="big num">{props.value}
+        {props.delta && <span className={`tdelta ${(props.delta.pct >= 0) === (props.delta.goodUp ?? true) ? "up" : "down"}`}>{props.delta.pct >= 0 ? "▲" : "▼"} {Math.abs(props.delta.pct)}%</span>}
+      </div>
       {props.spark && props.spark.length > 1 && <Sparkline points={props.spark} />}
       {props.rows?.map(r => (
         <div className="row" key={r.k}><span>{r.k}</span><b className="num">{r.v}</b></div>
