@@ -9,8 +9,9 @@ const num = (v: number) => new Intl.NumberFormat("ru-RU", { maximumFractionDigit
 const pct = (v: number) => (v * 100).toFixed(1).replace(".", ",") + "%";
 
 export function RnpTable({ days, details }: { days: DayRow[]; details: Record<string, RnpSkuDay[]> }) {
+  // по умолчанию ВСЕ дни раскрыты (open[date] === false означает свёрнут вручную)
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const toggle = (d: string) => setOpen(o => ({ ...o, [d]: !o[d] }));
+  const toggle = (d: string) => setOpen(o => ({ ...o, [d]: o[d] === false ? true : false }));
 
   return (
     <div className="tblwrap">
@@ -24,7 +25,7 @@ export function RnpTable({ days, details }: { days: DayRow[]; details: Record<st
         <tbody>
           {days.map(d => {
             const rows = details[d.date] ?? [];
-            const isOpen = !!open[d.date];
+            const isOpen = open[d.date] !== false;
             return [
               <tr key={d.date} onClick={() => rows.length && toggle(d.date)}
                   className={rows.length ? "expandable" : ""}
